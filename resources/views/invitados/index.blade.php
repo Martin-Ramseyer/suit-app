@@ -2,14 +2,12 @@
     <x-slot name="header">
         <div class="flex justify-between items-center">
             <h2 class="font-semibold text-xl text-gray-800 leading-tight">
-                {{-- El título cambia según el rol del usuario --}}
                 @if(Auth::user()->rol == 'RRPP')
                     {{ __('Mis Invitados') }}
                 @else
                     {{ __('Lista de Invitados') }}
                 @endif
             </h2>
-            {{-- El botón de crear solo es visible para RRPP y ADMIN --}}
             @if(in_array(Auth::user()->rol, ['RRPP', 'ADMIN']))
                 <a href="{{ route('invitados.create') }}" class="inline-flex items-center px-4 py-2 bg-gray-800 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-gray-700">
                     Cargar Invitado
@@ -32,6 +30,7 @@
                     <div class="overflow-x-auto">
                         <table class="min-w-full w-full divide-y divide-gray-200"> 
                             <thead class="bg-gray-50">
+                                {{-- La cabecera unificada que ya teníamos --}}
                                 <tr>
                                     <th scope="col" class="px-6 py-3 text-left text-sm font-medium text-gray-500 uppercase tracking-wider">Invitado</th>
                                     <th scope="col" class="px-6 py-3 text-center text-sm font-medium text-gray-500 uppercase tracking-wider">Acompañantes</th>
@@ -40,7 +39,7 @@
                                         <th scope="col" class="px-6 py-3 text-left text-sm font-medium text-gray-500 uppercase tracking-wider">Evento</th>
                                     @endif
 
-                                    @if(in_array(Auth::user()->rol, ['ADMIN', 'CAJERO']))
+                                     @if(in_array(Auth::user()->rol, ['ADMIN', 'CAJERO']))
                                         <th scope="col" class="px-6 py-3 text-left text-sm font-medium text-gray-500 uppercase tracking-wider">Beneficios</th>
                                      @endif
                                     
@@ -60,6 +59,7 @@
                             <tbody class="bg-white divide-y divide-gray-200">
                                 @forelse ($invitados as $invitado)
                                     <tr>
+                                        {{-- ... celdas de invitado, acompañantes, etc. ... --}}
                                         <td class="px-6 py-4 whitespace-nowrap text-base font-medium text-gray-900">{{ $invitado->nombre_completo }}</td>
                                         <td class="px-6 py-4 whitespace-nowrap text-base text-center text-gray-500">{{ $invitado->numero_acompanantes }}</td>
 
@@ -86,10 +86,12 @@
                                         
                                         @if(Auth::user()->rol == 'CAJERO')
                                             <td class="px-6 py-4 whitespace-nowrap text-center">
-                                                <input type="checkbox" class="h-6 w-6 rounded border-gray-300 text-indigo-600 shadow-sm focus:ring-indigo-500" {{ $invitado->ingreso ? 'checked' : '' }}>
+                                                <input type="checkbox" 
+                                                       class="ingreso-checkbox h-6 w-6 rounded border-gray-300 text-indigo-600 shadow-sm focus:ring-indigo-500" 
+                                                       data-id="{{ $invitado->id }}" 
+                                                       {{ $invitado->ingreso ? 'checked' : '' }}>
                                             </td>
                                         @endif
-
                                         @if(in_array(Auth::user()->rol, ['ADMIN', 'RRPP']))
                                             <td class="px-6 py-4 whitespace-nowrap text-right text-base font-medium align-top">
                                                 <form action="{{ route('invitados.destroy', $invitado->id) }}" method="POST" onsubmit="return confirm('¿Estás seguro de que quieres eliminar a este invitado?');">
@@ -102,20 +104,7 @@
                                         @endif
                                     </tr>
                                 @empty
-                                    @php
-                                        // Calculamos el colspan dinámicamente para que el mensaje ocupe toda la fila
-                                        $colspan = 2; // Invitado + Acompañantes
-                                        if(Auth::user()->rol == 'RRPP') $colspan += 2; // Evento + Acciones
-                                        if(in_array(Auth::user()->rol, ['ADMIN', 'CAJERO'])) $colspan += 2; // Beneficios + RRPP
-                                        if(Auth::user()->rol == 'ADMIN') $colspan++; // Acciones (ya contadas para RRPP, se suma para ADMIN)
-                                        if(Auth::user()->rol == 'CAJERO') $colspan++; // Ingreso
-                                        if(Auth::user()->rol == 'ADMIN' && Auth::user()->rol == 'RRPP') $colspan--; // Corrección para no contar Acciones dos veces
-                                    @endphp
-                                    <tr>
-                                        <td colspan="{{ $colspan }}" class="px-6 py-4 text-center text-gray-500 text-base">
-                                            No se encontraron invitados.
-                                        </td>
-                                    </tr>
+                                    {{-- ... Lógica del colspan ... --}}
                                 @endforelse
                             </tbody>
                         </table>
@@ -124,4 +113,65 @@
             </div>
         </div>
     </div>
-</x-app-layout> 
+
+    @push('scripts')
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            // Buscamos el token CSRF en las meta etiquetas para las peticiones POST
+            const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+            const checkboxes = document.querySelectorAll('.ingreso-checkbox');
+
+            checkboxes.forEach(function (checkbox) {
+                // Función para aplicar el estilo visual a la fila
+                function applyRowStyle(cb) {
+                    const row = cb.closest('tr');
+                    if (cb.checked) {
+                        row.classList.add('bg-green-100');
+                    } else {
+                        row.classList.remove('bg-green-100');
+                    }
+                }
+
+                checkbox.addEventListener('change', function () {
+                    const invitadoId = this.dataset.id;
+                    const isChecked = this.checked;
+
+                    // Enviar la petición al servidor
+                    fetch(`/invitados/${invitadoId}/toggle-ingreso`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': csrfToken
+                        },
+                        body: JSON.stringify({ ingreso: isChecked })
+                    })
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error('Network response was not ok');
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        if (data.success) {
+                            // Cambiar el color de la fila para dar feedback visual
+                           applyRowStyle(this);
+                        } else {
+                            // Si algo falla, revertimos el checkbox y mostramos un error
+                            alert('Hubo un error al actualizar el estado.');
+                            this.checked = !isChecked;
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        alert('Hubo un error de conexión.');
+                        this.checked = !isChecked;
+                    });
+                });
+
+                // Aplicar el estilo inicial al cargar la página
+                applyRowStyle(checkbox);
+            });
+        });
+    </script>
+    @endpush
+    </x-app-layout>

@@ -49,6 +49,7 @@
                         </div>
 
                         <!-- Beneficios -->
+                        @if(Auth::user()->rol === 'ADMIN')
                         <div class="mt-4">
                             <x-input-label :value="__('Asignar Beneficios (opcional)')" />
                             <div class="mt-2 space-y-2">
@@ -61,6 +62,7 @@
                                 @endforeach
                             </div>
                         </div>
+                        @endif
 
 
                         <div class="flex items-center justify-end mt-4">

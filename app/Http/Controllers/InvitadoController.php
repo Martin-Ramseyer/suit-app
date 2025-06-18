@@ -124,6 +124,19 @@ class InvitadoController extends Controller
             ->with('success', 'Invitado eliminado exitosamente.');
     }
 
+    public function toggleIngreso(Request $request, Invitado $invitado)
+    {
+        // Solo un cajero o un admin puede realizar esta acción
+        $this->authorizeRole(['CAJERO', 'ADMIN']);
+
+        // Cambia el valor booleano 'ingreso' al opuesto
+        $invitado->ingreso = !$invitado->ingreso;
+        $invitado->save();
+
+        // Devuelve una respuesta JSON para que JavaScript sepa que todo fue bien
+        return response()->json(['success' => true, 'nuevo_estado' => $invitado->ingreso]);
+    }
+
     // Helper para verificar roles permitidos en una acción
     private function authorizeRole(array $roles)
     {

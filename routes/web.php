@@ -25,6 +25,7 @@ Route::middleware('role:ADMIN')->group(function () {
 });
 Route::middleware('role:RRPP,ADMIN,CAJERO')->group(function () {
     Route::resource('invitados', InvitadoController::class);
+    Route::post('/invitados/{invitado}/toggle-ingreso', [InvitadoController::class, 'toggleIngreso'])->name('invitados.toggleIngreso');
 });
 
 require __DIR__ . '/auth.php';
