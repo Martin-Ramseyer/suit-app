@@ -23,6 +23,16 @@
                     <x-nav-link :href="route('eventos.index')" :active="request()->routeIs('eventos.index')">
                         {{ __('Gestionar Eventos') }}
                     </x-nav-link>
+                        @if(in_array(Auth::user()->rol, ['RRPP', 'ADMIN', 'CAJERO']))
+        <x-nav-link :href="route('invitados.index')" :active="request()->routeIs('invitados.*')">
+            {{-- Cambia el texto del enlace según el rol --}}
+            @if(Auth::user()->rol == 'RRPP')
+                {{ __('Mis Invitados') }}
+            @else
+                {{ __('Lista de Invitados') }}
+            @endif
+        </x-nav-link>
+    @endif
 
                 </div>
             </div>
@@ -86,6 +96,11 @@
              <x-responsive-nav-link :href="route('eventos.index')" :active="request()->routeIs('eventos.index')">
                 {{ __('Gestionar Eventos') }}
             </x-responsive-nav-link>
+                   @if(Auth::user()->rol == 'RRPP')
+                <x-responsive-nav-link :href="route('invitados.index')" :active="request()->routeIs('invitados.*')">
+                    {{ __('Mis Invitados') }}
+                </x-responsive-nav-link>
+            @endif
         </div>
 
         <!-- Responsive Settings Options -->
