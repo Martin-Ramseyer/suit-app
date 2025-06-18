@@ -15,6 +15,15 @@
                     <x-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')">
                         {{ __('Dashboard') }}
                     </x-nav-link>
+                    
+                    <!-- Enlaces del Admin -->
+                    <x-nav-link :href="route('usuarios.index')" :active="request()->routeIs('usuarios.index')">
+                        {{ __('Gestionar Usuarios') }}
+                    </x-nav-link>
+                    <x-nav-link :href="route('eventos.index')" :active="request()->routeIs('eventos.index')">
+                        {{ __('Gestionar Eventos') }}
+                    </x-nav-link>
+
                 </div>
             </div>
 
@@ -23,7 +32,8 @@
                 <x-dropdown align="right" width="48">
                     <x-slot name="trigger">
                         <button class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-gray-500 bg-white hover:text-gray-700 focus:outline-none transition ease-in-out duration-150">
-                            <div>{{ Auth::user()->name }}</div>
+                            {{-- CORREGIDO: Usamos nombre_completo de nuestro modelo User --}}
+                            <div>{{ Auth::user()->nombre_completo }}</div>
 
                             <div class="ms-1">
                                 <svg class="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
@@ -52,7 +62,7 @@
                 </x-dropdown>
             </div>
 
-            <!-- Hamburger -->
+            <!-- Hamburger (Menú para móviles) -->
             <div class="-me-2 flex items-center sm:hidden">
                 <button @click="open = ! open" class="inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 focus:outline-none focus:bg-gray-100 focus:text-gray-500 transition duration-150 ease-in-out">
                     <svg class="h-6 w-6" stroke="currentColor" fill="none" viewBox="0 0 24 24">
@@ -70,13 +80,20 @@
             <x-responsive-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')">
                 {{ __('Dashboard') }}
             </x-responsive-nav-link>
+            <x-responsive-nav-link :href="route('usuarios.index')" :active="request()->routeIs('usuarios.index')">
+                {{ __('Gestionar Usuarios') }}
+            </x-responsive-nav-link>
+             <x-responsive-nav-link :href="route('eventos.index')" :active="request()->routeIs('eventos.index')">
+                {{ __('Gestionar Eventos') }}
+            </x-responsive-nav-link>
         </div>
 
         <!-- Responsive Settings Options -->
         <div class="pt-4 pb-1 border-t border-gray-200">
             <div class="px-4">
-                <div class="font-medium text-base text-gray-800">{{ Auth::user()->name }}</div>
-                <div class="font-medium text-sm text-gray-500">{{ Auth::user()->email }}</div>
+                {{-- CORREGIDO: Usamos nombre_completo y usuario --}}
+                <div class="font-medium text-base text-gray-800">{{ Auth::user()->nombre_completo }}</div>
+                <div class="font-medium text-sm text-gray-500">{{ Auth::user()->usuario }}</div>
             </div>
 
             <div class="mt-3 space-y-1">
@@ -87,7 +104,6 @@
                 <!-- Authentication -->
                 <form method="POST" action="{{ route('logout') }}">
                     @csrf
-
                     <x-responsive-nav-link :href="route('logout')"
                             onclick="event.preventDefault();
                                         this.closest('form').submit();">
