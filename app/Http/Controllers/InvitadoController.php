@@ -11,38 +11,25 @@ use Illuminate\Validation\Rule;
 
 class InvitadoController extends Controller
 {
-    /**
-     * Muestra la lista de invitados según el rol del usuario.
-     */
     public function index()
     {
         $user = Auth::user();
-
         if ($user->rol === 'ADMIN' || $user->rol === 'CAJERO') {
             $invitados = Invitado::with(['evento', 'beneficios', 'rrpp'])->latest()->get();
         } else {
             $invitados = Invitado::where('usuario_id', $user->id)->with(['evento', 'beneficios'])->latest()->get();
         }
-
         return view('invitados.index', compact('invitados'));
     }
 
-    /**
-     * Muestra el formulario para crear un nuevo invitado.
-     */
     public function create()
     {
         $this->authorizeRole(['RRPP', 'ADMIN']);
-
         $eventos = Evento::where('fecha_evento', '>=', now()->toDateString())->orderBy('fecha_evento', 'asc')->get();
         $beneficios = Beneficio::all();
-
         return view('invitados.create', compact('eventos', 'beneficios'));
     }
 
-    /**
-     * Guarda un nuevo invitado en la base de datos.
-     */
     public function store(Request $request)
     {
         $this->authorizeRole(['RRPP', 'ADMIN']);
@@ -52,7 +39,8 @@ class InvitadoController extends Controller
             'numero_acompanantes' => 'required|integer|min:0',
             'evento_id' => 'required|exists:eventos,id',
             'beneficios' => 'nullable|array',
-            'beneficios.*' => 'exists:beneficios,id',
+            'cantidades' => 'nullable|array',
+            'cantidades.*' => 'required_with:beneficios.*|integer|min:1',
         ]);
 
         $invitado = Invitado::create([
@@ -62,34 +50,29 @@ class InvitadoController extends Controller
             'usuario_id' => Auth::id(),
         ]);
 
-        if ($request->has('beneficios')) {
-            $invitado->beneficios()->attach($request->beneficios);
+        if (Auth::user()->rol === 'ADMIN' && $request->has('beneficios')) {
+            $beneficiosParaAdjuntar = [];
+            // Iteramos SOLO sobre los checkboxes MARCADOS
+            foreach ($request->beneficios as $beneficioId => $value) {
+                $beneficiosParaAdjuntar[$beneficioId] = ['cantidad' => $request->cantidades[$beneficioId] ?? 1];
+            }
+            $invitado->beneficios()->attach($beneficiosParaAdjuntar);
         }
 
         return redirect()->route('invitados.index')
             ->with('success', 'Invitado agregado exitosamente.');
     }
 
-    /**
-     * Muestra el formulario para editar un invitado.
-     */
     public function edit(Invitado $invitado)
     {
-        // Autoriza que solo el ADMIN o el RRPP dueño del invitado puedan editar.
         $this->authorizeOwnership($invitado);
-
         $eventos = Evento::where('fecha_evento', '>=', now()->toDateString())->orderBy('fecha_evento', 'asc')->get();
         $beneficios = Beneficio::all();
-
         return view('invitados.edit', compact('invitado', 'eventos', 'beneficios'));
     }
 
-    /**
-     * Actualiza un invitado en la base de datos.
-     */
     public function update(Request $request, Invitado $invitado)
     {
-        // Autoriza que solo el ADMIN o el RRPP dueño del invitado puedan actualizar.
         $this->authorizeOwnership($invitado);
 
         $request->validate([
@@ -97,47 +80,44 @@ class InvitadoController extends Controller
             'numero_acompanantes' => 'required|integer|min:0',
             'evento_id' => 'required|exists:eventos,id',
             'beneficios' => 'nullable|array',
-            'beneficios.*' => 'exists:beneficios,id',
+            'cantidades' => 'nullable|array',
+            'cantidades.*' => 'required_with:beneficios.*|integer|min:1',
         ]);
 
-        // Actualiza los datos del invitado
         $invitado->update($request->only('nombre_completo', 'numero_acompanantes', 'evento_id'));
 
-        // Sincroniza los beneficios. sync() se encarga de añadir/quitar según lo seleccionado.
-        $invitado->beneficios()->sync($request->beneficios ?? []);
+        if (Auth::user()->rol === 'ADMIN') {
+            $beneficiosParaSincronizar = [];
+            if ($request->has('beneficios')) {
+                // Iteramos SOLO sobre los checkboxes MARCADOS
+                foreach ($request->beneficios as $beneficioId => $value) {
+                    $beneficiosParaSincronizar[$beneficioId] = ['cantidad' => $request->cantidades[$beneficioId] ?? 1];
+                }
+            }
+            // sync() se encarga de todo: añade, actualiza y elimina lo que sea necesario.
+            $invitado->beneficios()->sync($beneficiosParaSincronizar);
+        }
 
         return redirect()->route('invitados.index')
             ->with('success', 'Invitado actualizado exitosamente.');
     }
 
-    /**
-     * Elimina un invitado de la base de datos.
-     */
     public function destroy(Invitado $invitado)
     {
-        // Autoriza que solo el ADMIN o el RRPP dueño del invitado puedan eliminar.
         $this->authorizeOwnership($invitado);
-
         $invitado->delete();
-
         return redirect()->route('invitados.index')
             ->with('success', 'Invitado eliminado exitosamente.');
     }
 
     public function toggleIngreso(Request $request, Invitado $invitado)
     {
-        // Solo un cajero o un admin puede realizar esta acción
         $this->authorizeRole(['CAJERO', 'ADMIN']);
-
-        // Cambia el valor booleano 'ingreso' al opuesto
         $invitado->ingreso = !$invitado->ingreso;
         $invitado->save();
-
-        // Devuelve una respuesta JSON para que JavaScript sepa que todo fue bien
         return response()->json(['success' => true, 'nuevo_estado' => $invitado->ingreso]);
     }
 
-    // Helper para verificar roles permitidos en una acción
     private function authorizeRole(array $roles)
     {
         if (!in_array(Auth::user()->rol, $roles)) {
@@ -145,19 +125,12 @@ class InvitadoController extends Controller
         }
     }
 
-    // Helper para verificar si el usuario es dueño del recurso o es Admin
     private function authorizeOwnership(Invitado $invitado)
     {
         $user = Auth::user();
-        // Si el usuario es ADMIN, puede pasar.
-        if ($user->rol === 'ADMIN') {
+        if ($user->rol === 'ADMIN' || ($user->rol === 'RRPP' && $invitado->usuario_id === $user->id)) {
             return;
         }
-        // Si el usuario es RRPP, debe ser el dueño del invitado.
-        if ($user->rol === 'RRPP' && $invitado->usuario_id === $user->id) {
-            return;
-        }
-        // Si no se cumple ninguna condición, se deniega el acceso.
         abort(403, 'No tienes permiso para realizar esta acción sobre este invitado.');
     }
 }

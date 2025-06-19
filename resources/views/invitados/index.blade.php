@@ -72,16 +72,14 @@
                                                 @foreach($invitado->beneficios as $beneficio)
                                                     <span class="inline-block bg-blue-100 text-blue-800 rounded-full px-3 py-1 text-sm font-semibold mr-2 mb-2">
                                                         {{ $beneficio->nombre_beneficio }}
-                                                        @if(Auth::user()->rol == 'ADMIN')
                                                             (Cant: {{ $beneficio->pivot->cantidad }})
-                                                        @endif
                                                     </span>
                                                 @endforeach
                                             </td>
                                         @endif
 
                                         @if(in_array(Auth::user()->rol, ['ADMIN', 'CAJERO']))
-                                            <td class="px-6 py-4 whitespace-nowrap text-base text-gray-500">{{ $invitado->rrpp->usuario ?? 'N/A' }}</td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-base text-gray-500">{{ $invitado->rrpp->nombre_completo ?? 'N/A' }}</td>
                                         @endif
                                         
                                         @if(Auth::user()->rol == 'CAJERO')
