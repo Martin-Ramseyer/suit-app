@@ -16,13 +16,18 @@
                         {{ __('Dashboard') }}
                     </x-nav-link>
                     
-                    <!-- Enlaces del Admin -->
+                    @if(Auth::user()->rol == 'ADMIN')
                     <x-nav-link :href="route('usuarios.index')" :active="request()->routeIs('usuarios.index')">
                         {{ __('Gestionar Usuarios') }}
                     </x-nav-link>
-                    <x-nav-link :href="route('eventos.index')" :active="request()->routeIs('eventos.index')">
+                        <x-nav-link :href="route('beneficios.index')" :active="request()->routeIs('beneficios.*')">
+                        {{ __('Gestionar Beneficios') }}
+                    </x-nav-link>
+                                        <x-nav-link :href="route('eventos.index')" :active="request()->routeIs('eventos.index')">
                         {{ __('Gestionar Eventos') }}
                     </x-nav-link>
+                    @endif
+
                         @if(in_array(Auth::user()->rol, ['RRPP', 'ADMIN', 'CAJERO']))
         <x-nav-link :href="route('invitados.index')" :active="request()->routeIs('invitados.*')">
             {{-- Cambia el texto del enlace según el rol --}}
