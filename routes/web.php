@@ -22,6 +22,7 @@ Route::middleware('auth')->group(function () {
 Route::middleware('role:ADMIN')->group(function () {
     Route::resource('usuarios', UsuarioController::class);
     Route::resource('eventos', EventoController::class);
+    Route::get('historial/eventos', [EventoController::class, 'historial'])->name('eventos.historial');
 });
 Route::middleware('role:RRPP,ADMIN,CAJERO')->group(function () {
     Route::resource('invitados', InvitadoController::class);

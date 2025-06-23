@@ -26,11 +26,24 @@
                             <span class="block sm:inline">{{ session('success') }}</span>
                         </div>
                     @endif
-
+                    @if(in_array(Auth::user()->rol, ['ADMIN', 'CAJERO']))
+                    <div class="mb-4">
+                        <form action="{{ route('invitados.index') }}" method="GET" class="flex items-center">
+                            <x-text-input type="text" name="search" placeholder="Buscar por invitado o RRPP..." class="w-full" :value="request('search')" />
+                            <x-primary-button class="ms-3">
+                                {{ __('Buscar') }}
+                            </x-primary-button>
+                            @if(request('search'))
+                                <a href="{{ route('invitados.index') }}" class="ms-3 text-sm text-gray-600 hover:text-gray-900 underline">
+                                    Limpiar
+                                </a>
+                            @endif
+                        </form>
+                    </div>
+                    @endif
                     <div class="overflow-x-auto">
                         <table class="min-w-full w-full divide-y divide-gray-200"> 
                             <thead class="bg-gray-50">
-                                {{-- La cabecera unificada que ya teníamos --}}
                                 <tr>
                                     <th scope="col" class="px-6 py-3 text-left text-sm font-medium text-gray-500 uppercase tracking-wider">Invitado</th>
                                     <th scope="col" class="px-6 py-3 text-center text-sm font-medium text-gray-500 uppercase tracking-wider">Acompañantes</th>
@@ -59,7 +72,6 @@
                             <tbody class="bg-white divide-y divide-gray-200">
                                 @forelse ($invitados as $invitado)
                                     <tr>
-                                        {{-- ... celdas de invitado, acompañantes, etc. ... --}}
                                         <td class="px-6 py-4 whitespace-nowrap text-base font-medium text-gray-900">{{ $invitado->nombre_completo }}</td>
                                         <td class="px-6 py-4 whitespace-nowrap text-base text-center text-gray-500">{{ $invitado->numero_acompanantes }}</td>
 
@@ -72,7 +84,7 @@
                                                 @foreach($invitado->beneficios as $beneficio)
                                                     <span class="inline-block bg-blue-100 text-blue-800 rounded-full px-3 py-1 text-sm font-semibold mr-2 mb-2">
                                                         {{ $beneficio->nombre_beneficio }}
-                                                            (Cant: {{ $beneficio->pivot->cantidad }})
+                                                        (Cant: {{ $beneficio->pivot->cantidad }})
                                                     </span>
                                                 @endforeach
                                             </td>
@@ -102,7 +114,23 @@
                                         @endif
                                     </tr>
                                 @empty
-                                    {{-- ... Lógica del colspan ... --}}
+                                    <tr>
+                                        {{-- Modificamos el colspan para que se ajuste dinámicamente --}}
+                                        @php
+                                            $colspan = 2; // Invitado y Acompañantes
+                                            if(Auth::user()->rol == 'RRPP') $colspan++; // Evento
+                                            if(in_array(Auth::user()->rol, ['ADMIN', 'CAJERO'])) $colspan += 2; // Beneficios y RRPP
+                                            if(Auth::user()->rol == 'CAJERO') $colspan++; // Ingreso
+                                            if(in_array(Auth::user()->rol, ['ADMIN', 'RRPP'])) $colspan++; // Acciones
+                                        @endphp
+                                        <td colspan="{{ $colspan }}" class="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-500">
+                                            @if(request('search'))
+                                                No se encontraron invitados que coincidan con la búsqueda "{{ request('search') }}".
+                                            @else
+                                                No se encontraron invitados.
+                                            @endif
+                                        </td>
+                                    </tr>
                                 @endforelse
                             </tbody>
                         </table>
@@ -113,14 +141,13 @@
     </div>
 
     @push('scripts')
+    {{-- El script para el toggle de ingreso no necesita cambios --}}
     <script>
         document.addEventListener('DOMContentLoaded', function () {
-            // Buscamos el token CSRF en las meta etiquetas para las peticiones POST
             const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
             const checkboxes = document.querySelectorAll('.ingreso-checkbox');
 
             checkboxes.forEach(function (checkbox) {
-                // Función para aplicar el estilo visual a la fila
                 function applyRowStyle(cb) {
                     const row = cb.closest('tr');
                     if (cb.checked) {
@@ -134,7 +161,6 @@
                     const invitadoId = this.dataset.id;
                     const isChecked = this.checked;
 
-                    // Enviar la petición al servidor
                     fetch(`/invitados/${invitadoId}/toggle-ingreso`, {
                         method: 'POST',
                         headers: {
@@ -143,18 +169,11 @@
                         },
                         body: JSON.stringify({ ingreso: isChecked })
                     })
-                    .then(response => {
-                        if (!response.ok) {
-                            throw new Error('Network response was not ok');
-                        }
-                        return response.json();
-                    })
+                    .then(response => response.ok ? response.json() : Promise.reject('Error de red'))
                     .then(data => {
                         if (data.success) {
-                            // Cambiar el color de la fila para dar feedback visual
                            applyRowStyle(this);
                         } else {
-                            // Si algo falla, revertimos el checkbox y mostramos un error
                             alert('Hubo un error al actualizar el estado.');
                             this.checked = !isChecked;
                         }
@@ -165,11 +184,10 @@
                         this.checked = !isChecked;
                     });
                 });
-
-                // Aplicar el estilo inicial al cargar la página
+                
                 applyRowStyle(checkbox);
             });
         });
     </script>
     @endpush
-    </x-app-layout>
+</x-app-layout>

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Evento;
+use App\Models\Invitado;
 use Illuminate\Http\Request;
 
 class EventoController extends Controller
@@ -83,5 +84,32 @@ class EventoController extends Controller
         // Redirige con un mensaje de éxito.
         return redirect()->route('eventos.index')
             ->with('success', 'Evento eliminado exitosamente.');
+    }
+
+    public function historial(Request $request)
+    {
+        // 1. Obtener todos los eventos para el selector.
+        $eventos = Evento::orderBy('fecha_evento', 'desc')->get();
+
+        $invitados = collect();
+        $eventoSeleccionado = null;
+        // Obtenemos el ID del evento que el usuario seleccionó en el formulario.
+        $eventoIdSeleccionado = $request->input('evento_id');
+
+        // 2. Si se seleccionó un ID, procedemos a buscar.
+        if ($eventoIdSeleccionado) {
+            $eventoSeleccionado = Evento::find($eventoIdSeleccionado);
+
+            if ($eventoSeleccionado) {
+                $invitados = Invitado::where('evento_id', $eventoIdSeleccionado)
+                    ->with(['rrpp', 'beneficios'])
+                    ->orderBy('nombre_completo', 'asc')
+                    ->get();
+            }
+        }
+
+        // 3. Retornar la vista con los datos necesarios.
+        //    Añadimos 'eventoIdSeleccionado' a las variables que pasamos a la vista.
+        return view('eventos.historial', compact('eventos', 'invitados', 'eventoSeleccionado', 'eventoIdSeleccionado'));
     }
 }

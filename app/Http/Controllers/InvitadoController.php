@@ -11,15 +11,37 @@ use Illuminate\Validation\Rule;
 
 class InvitadoController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
         $user = Auth::user();
-        if ($user->rol === 'ADMIN' || $user->rol === 'CAJERO') {
-            $invitados = Invitado::with(['evento', 'beneficios', 'rrpp'])->latest()->get();
-        } else {
-            $invitados = Invitado::where('usuario_id', $user->id)->with(['evento', 'beneficios'])->latest()->get();
+        $search = $request->input('search'); // Capturamos el término de búsqueda
+
+        // Empezamos la consulta base
+        $query = Invitado::query();
+
+        // Aplicamos el filtro de rol: RRPP solo ve sus invitados.
+        if ($user->rol === 'RRPP') {
+            $query->where('usuario_id', $user->id);
         }
-        return view('invitados.index', compact('invitados'));
+
+        // Si hay un término de búsqueda, aplicamos los filtros
+        $query->when($search, function ($q, $search) {
+            return $q->where(function ($subQuery) use ($search) {
+                // Buscar por el nombre completo del invitado
+                $subQuery->where('nombre_completo', 'like', "%{$search}%")
+                    // O buscar en la relación con el RRPP (por nombre completo o por usuario)
+                    ->orWhereHas('rrpp', function ($rrppQuery) use ($search) {
+                        $rrppQuery->where('nombre_completo', 'like', "%{$search}%")
+                            ->orWhere('usuario', 'like', "%{$search}%");
+                    });
+            });
+        });
+
+        // Obtenemos los resultados ordenados y con las relaciones cargadas
+        $invitados = $query->with(['evento', 'beneficios', 'rrpp'])->latest()->get();
+
+        // Pasamos tanto los invitados como el término de búsqueda a la vista
+        return view('invitados.index', compact('invitados', 'search'));
     }
 
     public function create()
