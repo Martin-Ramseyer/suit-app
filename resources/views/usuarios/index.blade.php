@@ -47,12 +47,17 @@
                                         <td class="px-6 py-4 whitespace-nowrap text-base text-gray-500">{{ $usuario->usuario }}</td>
                                         <td class="px-6 py-4 whitespace-nowrap text-base text-gray-500">{{ $usuario->rol }}</td>
                                         <td class="px-6 py-4 whitespace-nowrap text-right text-base font-medium">
-                                            <form action="{{ route('usuarios.destroy', $usuario->id) }}" method="POST">
-                                                <a href="{{ route('usuarios.edit', $usuario->id) }}" class="text-indigo-600 hover:text-indigo-900 mr-4">Editar</a>
-                                                @csrf
-                                                @method('DELETE')
-                                                <button type="submit" class="text-red-600 hover:text-red-900">Eliminar</button>
-                                            </form>
+                                            <div class="flex items-center justify-end space-x-4">
+                                                @if($usuario->rol === 'RRPP')
+                                                    <a href="{{ route('usuarios.metricas', $usuario->id) }}" class="text-green-600 hover:text-green-900">Métricas</a>
+                                                @endif
+                                                <a href="{{ route('usuarios.edit', $usuario->id) }}" class="text-indigo-600 hover:text-indigo-900">Editar</a>
+                                                <form action="{{ route('usuarios.destroy', $usuario->id) }}" method="POST" onsubmit="return confirm('¿Estás seguro de que quieres eliminar a este usuario?');">
+                                                    @csrf
+                                                    @method('DELETE')
+                                                    <button type="submit" class="text-red-600 hover:text-red-900">Eliminar</button>
+                                                </form>
+                                            </div>
                                         </td>
                                     </tr>
                                 @empty

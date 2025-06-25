@@ -67,22 +67,18 @@
                     <span class="text-xs text-gray-400">Sin beneficios</span>
                 @endforelse
             </td>
-                                            <td class="px-6 py-4 whitespace-nowrap text-center">
+            <td class="px-6 py-4 whitespace-nowrap text-center">
                 @if($invitado->ingreso)
-                    <span class="inline-flex items-center justify-center h-6 w-6 rounded-full bg-green-500">
-                        <svg class="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-                        </svg>
+                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                        Sí
                     </span>
                 @else
-                    <span class="inline-flex items-center justify-center h-6 w-6 rounded-full bg-red-500">
-                        <svg class="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                        </svg>
+                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">
+                        No
                     </span>
                 @endif
             </td>
-                                        </tr>
+        </tr>
                                     @empty
                                         <tr>
                                             <td colspan="5" class="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-500">
