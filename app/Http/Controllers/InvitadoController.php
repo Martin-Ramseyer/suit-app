@@ -14,22 +14,38 @@ class InvitadoController extends Controller
     public function index(Request $request)
     {
         $user = Auth::user();
-        $search = $request->input('search'); // Capturamos el término de búsqueda
+        $search = $request->input('search');
+        $eventoId = $request->input('evento_id');
 
-        // Empezamos la consulta base
+        // Determinar el evento actual (el próximo)
+        $eventoActual = Evento::where('fecha_evento', '>=', now()->toDateString())->orderBy('fecha_evento', 'asc')->first();
+
+        // Para RRPP y Cajero, forzamos que solo vean el evento actual
+        if (in_array($user->rol, ['RRPP', 'CAJERO'])) {
+            $eventoId = $eventoActual ? $eventoActual->id : null;
+        } elseif (!$request->has('evento_id') && $user->rol === 'ADMIN') {
+            // Para admin, por defecto también muestra el último
+            $eventoId = $eventoActual ? $eventoActual->id : null;
+        }
+
         $query = Invitado::query();
 
-        // Aplicamos el filtro de rol: RRPP solo ve sus invitados.
         if ($user->rol === 'RRPP') {
             $query->where('usuario_id', $user->id);
         }
 
-        // Si hay un término de búsqueda, aplicamos los filtros
+        if ($eventoId) {
+            $query->where('evento_id', $eventoId);
+        } else {
+            // Si no hay evento actual, RRPP y Cajero no ven nada
+            if (in_array($user->rol, ['RRPP', 'CAJERO'])) {
+                $query->whereRaw('1 = 0'); // Condición falsa para no devolver resultados
+            }
+        }
+
         $query->when($search, function ($q, $search) {
             return $q->where(function ($subQuery) use ($search) {
-                // Buscar por el nombre completo del invitado
                 $subQuery->where('nombre_completo', 'like', "%{$search}%")
-                    // O buscar en la relación con el RRPP (por nombre completo o por usuario)
                     ->orWhereHas('rrpp', function ($rrppQuery) use ($search) {
                         $rrppQuery->where('nombre_completo', 'like', "%{$search}%")
                             ->orWhere('usuario', 'like', "%{$search}%");
@@ -37,18 +53,36 @@ class InvitadoController extends Controller
             });
         });
 
-        // Obtenemos los resultados ordenados y con las relaciones cargadas
         $invitados = $query->with(['evento', 'beneficios', 'rrpp'])->latest()->get();
+        $eventos = Evento::orderBy('fecha_evento', 'desc')->get();
+        $eventoSeleccionado = $eventoId ? Evento::find($eventoId) : null;
 
-        // Pasamos tanto los invitados como el término de búsqueda a la vista
-        return view('invitados.index', compact('invitados', 'search'));
+
+        return view('invitados.index', compact('invitados', 'search', 'eventos', 'eventoId', 'eventoSeleccionado'));
     }
 
     public function create()
     {
         $this->authorizeRole(['RRPP', 'ADMIN']);
-        $eventos = Evento::where('fecha_evento', '>=', now()->toDateString())->orderBy('fecha_evento', 'asc')->get();
+
+        $user = Auth::user();
+        $eventos = collect(); // Inicializamos como colección vacía
+
+        if ($user->rol === 'ADMIN') {
+            $eventos = Evento::where('fecha_evento', '>=', now()->toDateString())->orderBy('fecha_evento', 'asc')->get();
+        } else { // RRPP
+            $eventoActual = Evento::where('fecha_evento', '>=', now()->toDateString())->orderBy('fecha_evento', 'asc')->first();
+            if ($eventoActual) {
+                $eventos->push($eventoActual);
+            }
+        }
+
         $beneficios = Beneficio::all();
+
+        if ($user->rol === 'RRPP' && $eventos->isEmpty()) {
+            return redirect()->route('dashboard')->with('error', 'No hay un evento próximo activo para cargar invitados.');
+        }
+
         return view('invitados.create', compact('eventos', 'beneficios'));
     }
 
@@ -65,6 +99,14 @@ class InvitadoController extends Controller
             'cantidades.*' => 'required_with:beneficios.*|integer|min:1',
         ]);
 
+        // Verificación adicional para RRPP
+        if (Auth::user()->rol === 'RRPP') {
+            $eventoActual = Evento::where('fecha_evento', '>=', now()->toDateString())->orderBy('fecha_evento', 'asc')->first();
+            if (!$eventoActual || $request->evento_id != $eventoActual->id) {
+                abort(403, 'Solo puedes agregar invitados al próximo evento activo.');
+            }
+        }
+
         $invitado = Invitado::create([
             'nombre_completo' => $request->nombre_completo,
             'numero_acompanantes' => $request->numero_acompanantes,
@@ -74,7 +116,6 @@ class InvitadoController extends Controller
 
         if (Auth::user()->rol === 'ADMIN' && $request->has('beneficios')) {
             $beneficiosParaAdjuntar = [];
-            // Iteramos SOLO sobre los checkboxes MARCADOS
             foreach ($request->beneficios as $beneficioId => $value) {
                 $beneficiosParaAdjuntar[$beneficioId] = ['cantidad' => $request->cantidades[$beneficioId] ?? 1];
             }
@@ -88,7 +129,19 @@ class InvitadoController extends Controller
     public function edit(Invitado $invitado)
     {
         $this->authorizeOwnership($invitado);
-        $eventos = Evento::where('fecha_evento', '>=', now()->toDateString())->orderBy('fecha_evento', 'asc')->get();
+
+        $user = Auth::user();
+        $eventos = collect();
+
+        if ($user->rol === 'ADMIN') {
+            $eventos = Evento::where('fecha_evento', '>=', now()->toDateString())->orderBy('fecha_evento', 'asc')->get();
+        } else { // RRPP
+            $eventoActual = Evento::where('fecha_evento', '>=', now()->toDateString())->orderBy('fecha_evento', 'asc')->first();
+            if ($eventoActual) {
+                $eventos->push($eventoActual);
+            }
+        }
+
         $beneficios = Beneficio::all();
         return view('invitados.edit', compact('invitado', 'eventos', 'beneficios'));
     }
@@ -111,12 +164,10 @@ class InvitadoController extends Controller
         if (Auth::user()->rol === 'ADMIN') {
             $beneficiosParaSincronizar = [];
             if ($request->has('beneficios')) {
-                // Iteramos SOLO sobre los checkboxes MARCADOS
                 foreach ($request->beneficios as $beneficioId => $value) {
                     $beneficiosParaSincronizar[$beneficioId] = ['cantidad' => $request->cantidades[$beneficioId] ?? 1];
                 }
             }
-            // sync() se encarga de todo: añade, actualiza y elimina lo que sea necesario.
             $invitado->beneficios()->sync($beneficiosParaSincronizar);
         }
 
@@ -135,6 +186,12 @@ class InvitadoController extends Controller
     public function toggleIngreso(Request $request, Invitado $invitado)
     {
         $this->authorizeRole(['CAJERO', 'ADMIN']);
+
+        $eventoActual = Evento::where('fecha_evento', '>=', now()->toDateString())->orderBy('fecha_evento', 'asc')->first();
+        if (Auth::user()->rol === 'CAJERO' && (!$eventoActual || $invitado->evento_id != $eventoActual->id)) {
+            return response()->json(['success' => false, 'message' => 'Solo se puede modificar el ingreso de invitados para el evento actual.'], 403);
+        }
+
         $invitado->ingreso = !$invitado->ingreso;
         $invitado->save();
         return response()->json(['success' => true, 'nuevo_estado' => $invitado->ingreso]);
@@ -150,9 +207,20 @@ class InvitadoController extends Controller
     private function authorizeOwnership(Invitado $invitado)
     {
         $user = Auth::user();
-        if ($user->rol === 'ADMIN' || ($user->rol === 'RRPP' && $invitado->usuario_id === $user->id)) {
+        if ($user->rol === 'ADMIN') {
             return;
         }
+
+        // RRPP solo puede editar invitados de eventos futuros
+        $eventoDelInvitado = Evento::find($invitado->evento_id);
+        if ($user->rol === 'RRPP' && $eventoDelInvitado && $eventoDelInvitado->fecha_evento < now()->toDateString()) {
+            abort(403, 'No puedes modificar invitados de eventos pasados.');
+        }
+
+        if ($user->rol === 'RRPP' && $invitado->usuario_id === $user->id) {
+            return;
+        }
+
         abort(403, 'No tienes permiso para realizar esta acción sobre este invitado.');
     }
 }
