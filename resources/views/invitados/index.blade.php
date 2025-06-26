@@ -29,14 +29,16 @@
 
                     @if(Auth::user()->rol === 'ADMIN')
                         <div class="mb-4">
-                            <form action="{{ route('invitados.index') }}" method="GET" class="flex items-center space-x-4">
+                            <div class="flex items-center space-x-4">
                                 <div class="flex-grow">
                                     <x-input-label for="search" :value="__('Buscar por Nombre o RRPP')" />
-                                    <x-text-input type="text" name="search" class="w-full" :value="request('search')" />
+                                    {{-- ID AÑADIDO AL INPUT DE BÚSQUEDA --}}
+                                    <x-text-input type="text" id="search-input" name="search" class="w-full" :value="request('search')" />
                                 </div>
                                 <div class="flex-grow">
                                     <x-input-label for="evento_id" :value="__('Filtrar por Evento')" />
-                                    <select name="evento_id" id="evento_id" class="w-full rounded-md shadow-sm border-gray-300">
+                                     {{-- ID AÑADIDO AL SELECT DE EVENTO --}}
+                                    <select name="evento_id" id="evento-select" class="w-full rounded-md shadow-sm border-gray-300">
                                         <option value="">Todos los eventos</option>
                                         @foreach($eventos as $evento)
                                             <option value="{{ $evento->id }}" {{ ($eventoId == $evento->id) ? 'selected' : '' }}>
@@ -45,17 +47,7 @@
                                         @endforeach
                                     </select>
                                 </div>
-                                <div>
-                                    <x-primary-button class="mt-5">
-                                        {{ __('Filtrar') }}
-                                    </x-primary-button>
-                                    @if(request('search') || request('evento_id'))
-                                        <a href="{{ route('invitados.index') }}" class="mt-5 ml-2 text-sm text-gray-600 hover:text-gray-900 underline">
-                                            Limpiar
-                                        </a>
-                                    @endif
-                                </div>
-                            </form>
+                            </div>
                         </div>
                     @else
                         @if($eventoSeleccionado)
@@ -69,101 +61,9 @@
                         @endif
                     @endif
 
-
-                    <div class="overflow-x-auto">
-                        <table class="min-w-full w-full divide-y divide-gray-200"> 
-                            <thead class="bg-gray-50">
-                                <tr>
-                                    <th scope="col" class="px-6 py-3 text-left text-sm font-medium text-gray-500 uppercase tracking-wider">Invitado</th>
-                                    <th scope="col" class="px-6 py-3 text-center text-sm font-medium text-gray-500 uppercase tracking-wider">Acompañantes</th>
-                                    
-                                    @if(Auth::user()->rol == 'ADMIN')
-                                        <th scope="col" class="px-6 py-3 text-left text-sm font-medium text-gray-500 uppercase tracking-wider">Evento</th>
-                                    @endif
-
-                                     @if(in_array(Auth::user()->rol, ['ADMIN', 'CAJERO']))
-                                        <th scope="col" class="px-6 py-3 text-left text-sm font-medium text-gray-500 uppercase tracking-wider">Beneficios</th>
-                                     @endif
-                                    
-                                    @if(in_array(Auth::user()->rol, ['ADMIN', 'CAJERO']))
-                                        <th scope="col" class="px-6 py-3 text-left text-sm font-medium text-gray-500 uppercase tracking-wider">RRPP</th>
-                                    @endif
-
-                                    @if(Auth::user()->rol == 'CAJERO')
-                                        <th scope="col" class="px-6 py-3 text-center text-sm font-medium text-gray-500 uppercase tracking-wider">Ingreso</th>
-                                    @endif
-
-                                    @if(in_array(Auth::user()->rol, ['ADMIN', 'RRPP']))
-                                        <th scope="col" class="px-6 py-3 text-right text-sm font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
-                                    @endif
-                                </tr>
-                            </thead>
-                            <tbody class="bg-white divide-y divide-gray-200">
-                                @forelse ($invitados as $invitado)
-                                    <tr class="{{ $invitado->ingreso ? 'bg-green-50' : '' }}">
-                                        <td class="px-6 py-4 whitespace-nowrap text-base font-medium text-gray-900">{{ $invitado->nombre_completo }}</td>
-                                        <td class="px-6 py-4 whitespace-nowrap text-base text-center text-gray-500">{{ $invitado->numero_acompanantes }}</td>
-                                        
-                                        @if(Auth::user()->rol == 'ADMIN')
-                                            <td class="px-6 py-4 whitespace-nowrap text-base text-gray-500">{{ $invitado->evento->fecha_evento ? \Carbon\Carbon::parse($invitado->evento->fecha_evento)->format('d/m/Y') : 'N/A' }}</td>
-                                        @endif
-                                        
-                                        @if(in_array(Auth::user()->rol, ['ADMIN', 'CAJERO']))
-                                            <td class="px-6 py-4 text-base text-gray-500 align-top">
-                                                @forelse($invitado->beneficios as $beneficio)
-                                                    <span class="inline-block bg-blue-100 text-blue-800 rounded-full px-3 py-1 text-sm font-semibold mr-2 mb-2">
-                                                        {{ $beneficio->nombre_beneficio }}
-                                                        (Cant: {{ $beneficio->pivot->cantidad }})
-                                                    </span>
-                                                @empty
-                                                    <span class="text-xs text-gray-400">Sin beneficios</span>
-                                                @endforelse
-                                            </td>
-                                        @endif
-
-                                        @if(in_array(Auth::user()->rol, ['ADMIN', 'CAJERO']))
-                                            <td class="px-6 py-4 whitespace-nowrap text-base text-gray-500">{{ $invitado->rrpp->nombre_completo ?? 'N/A' }}</td>
-                                        @endif
-                                        
-                                        @if(Auth::user()->rol == 'CAJERO')
-                                            <td class="px-6 py-4 whitespace-nowrap text-center">
-                                                <input type="checkbox" 
-                                                       class="ingreso-checkbox h-6 w-6 rounded border-gray-300 text-indigo-600 shadow-sm focus:ring-indigo-500" 
-                                                       data-id="{{ $invitado->id }}" 
-                                                       {{ $invitado->ingreso ? 'checked' : '' }}>
-                                            </td>
-                                        @endif
-                                        @if(in_array(Auth::user()->rol, ['ADMIN', 'RRPP']))
-                                            <td class="px-6 py-4 whitespace-nowrap text-right text-base font-medium align-top">
-                                                <form action="{{ route('invitados.destroy', $invitado->id) }}" method="POST" onsubmit="return confirm('¿Estás seguro de que quieres eliminar a este invitado?');">
-                                                    <a href="{{ route('invitados.edit', $invitado->id) }}" class="text-indigo-600 hover:text-indigo-900 mr-4">Editar</a>
-                                                    @csrf
-                                                    @method('DELETE')
-                                                    <button type="submit" class="text-red-600 hover:text-red-900">Eliminar</button>
-                                                </form>
-                                            </td>
-                                        @endif
-                                    </tr>
-                                @empty
-                                    <tr>
-                                        @php
-                                            $colspan = 2;
-                                            if(Auth::user()->rol == 'ADMIN') $colspan++;
-                                            if(in_array(Auth::user()->rol, ['ADMIN', 'CAJERO'])) $colspan += 2;
-                                            if(Auth::user()->rol == 'CAJERO') $colspan++;
-                                            if(in_array(Auth::user()->rol, ['ADMIN', 'RRPP'])) $colspan++;
-                                        @endphp
-                                        <td colspan="{{ $colspan }}" class="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-500">
-                                            @if(request('search'))
-                                                No se encontraron invitados que coincidan con la búsqueda.
-                                            @else
-                                                No hay invitados para mostrar.
-                                            @endif
-                                        </td>
-                                    </tr>
-                                @endforelse
-                            </tbody>
-                        </table>
+                    {{-- CONTENEDOR PARA LA TABLA --}}
+                    <div id="invitados-table-container" class="overflow-x-auto">
+                        @include('invitados._invitados_table')
                     </div>
                 </div>
             </div>
@@ -173,22 +73,60 @@
     @push('scripts')
     <script>
         document.addEventListener('DOMContentLoaded', function () {
-            const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
-            const checkboxes = document.querySelectorAll('.ingreso-checkbox');
+            const searchInput = document.getElementById('search-input');
+            const eventoSelect = document.getElementById('evento-select');
+            const tableContainer = document.getElementById('invitados-table-container');
+            let debounceTimer;
 
-            checkboxes.forEach(function (checkbox) {
-                function applyRowStyle(cb) {
-                    const row = cb.closest('tr');
-                    if (cb.checked) {
-                        row.classList.add('bg-green-100');
-                    } else {
-                        row.classList.remove('bg-green-100');
+            function fetchInvitados() {
+                const searchValue = searchInput.value;
+                const eventoId = eventoSelect.value;
+                const url = `{{ route('invitados.index') }}?search=${encodeURIComponent(searchValue)}&evento_id=${encodeURIComponent(eventoId)}`;
+
+                fetch(url, {
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
                     }
-                }
+                })
+                .then(response => response.text())
+                .then(html => {
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(html, 'text/html');
+                    const newTable = doc.getElementById('invitados-table-container').innerHTML;
+                    tableContainer.innerHTML = newTable;
+                })
+                .catch(error => console.error('Error fetching a los invitados:', error));
+            }
 
-                checkbox.addEventListener('change', function () {
-                    const invitadoId = this.dataset.id;
-                    const isChecked = this.checked;
+            searchInput.addEventListener('keyup', () => {
+                clearTimeout(debounceTimer);
+                debounceTimer = setTimeout(fetchInvitados, 300);
+            });
+
+            eventoSelect.addEventListener('change', fetchInvitados);
+        });
+    </script>
+    
+    <script>
+        // Este script se mantiene para el toggle de ingreso
+        document.addEventListener('DOMContentLoaded', function () {
+            const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+            
+            // Se necesita delegación de eventos porque la tabla se recarga dinámicamente
+            document.getElementById('invitados-table-container').addEventListener('change', function(event) {
+                if (event.target.classList.contains('ingreso-checkbox')) {
+                    const checkbox = event.target;
+                    const invitadoId = checkbox.dataset.id;
+                    const isChecked = checkbox.checked;
+
+                     function applyRowStyle(cb) {
+                        const row = cb.closest('tr');
+                        if (cb.checked) {
+                            row.classList.add('bg-green-100');
+                        } else {
+                            row.classList.remove('bg-green-100');
+                        }
+                    }
 
                     fetch(`/invitados/${invitadoId}/toggle-ingreso`, {
                         method: 'POST',
@@ -206,20 +144,28 @@
                     })
                     .then(data => {
                         if (data.success) {
-                           applyRowStyle(this);
+                           applyRowStyle(checkbox);
                         } else {
                             alert(data.message || 'Hubo un error al actualizar el estado.');
-                            this.checked = !isChecked;
+                            checkbox.checked = !isChecked;
                         }
                     })
                     .catch(error => {
                         console.error('Error:', error);
                         alert(error.message || 'Hubo un error de conexión.');
-                        this.checked = !isChecked;
+                        checkbox.checked = !isChecked;
                     });
-                });
-                
-                applyRowStyle(checkbox);
+                }
+            });
+
+             // Aplicar estilo inicial a las filas
+            document.querySelectorAll('.ingreso-checkbox').forEach(function (checkbox) {
+                const row = checkbox.closest('tr');
+                if (checkbox.checked) {
+                    row.classList.add('bg-green-100');
+                } else {
+                    row.classList.remove('bg-green-100');
+                }
             });
         });
     </script>
