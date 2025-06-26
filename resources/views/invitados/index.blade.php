@@ -27,20 +27,19 @@
                         </div>
                     @endif
 
+                    {{-- Filtros para ADMIN --}}
                     @if(Auth::user()->rol === 'ADMIN')
                         <div class="mb-4">
                             <div class="flex items-center space-x-4">
                                 <div class="flex-grow">
                                     <x-input-label for="search" :value="__('Buscar por Nombre o RRPP')" />
-                                    {{-- ID AÑADIDO AL INPUT DE BÚSQUEDA --}}
                                     <x-text-input type="text" id="search-input" name="search" class="w-full" :value="request('search')" />
                                 </div>
                                 <div class="flex-grow">
                                     <x-input-label for="evento_id" :value="__('Filtrar por Evento')" />
-                                     {{-- ID AÑADIDO AL SELECT DE EVENTO --}}
                                     <select name="evento_id" id="evento-select" class="w-full rounded-md shadow-sm border-gray-300">
                                         <option value="">Todos los eventos</option>
-                                        @foreach($eventos as $evento)
+                                        @foreach($eventosParaSelector as $evento)
                                             <option value="{{ $evento->id }}" {{ ($eventoId == $evento->id) ? 'selected' : '' }}>
                                                 {{ \Carbon\Carbon::parse($evento->fecha_evento)->format('d/m/Y') }} - {{ $evento->descripcion ?? 'Sin descripción' }}
                                             </option>
@@ -50,18 +49,31 @@
                             </div>
                         </div>
                     @else
-                        @if($eventoSeleccionado)
-                            <div class="mb-4 p-4 bg-blue-50 border border-blue-200 text-blue-800 rounded-md">
+                        {{-- Selector para RRPP/Cajero si hay MÁS DE UN evento futuro --}}
+                        @if(in_array(Auth::user()->rol, ['RRPP', 'CAJERO']) && $eventosParaSelector->count() > 1)
+                            <div class="mb-4">
+                                <form id="evento-filter-form" action="{{ route('invitados.index') }}" method="GET">
+                                    <x-input-label for="evento_id" :value="__('Selecciona un evento próximo')" />
+                                    <select name="evento_id" id="evento-select-rol" class="w-full md:w-1/2 rounded-md shadow-sm border-gray-300" onchange="document.getElementById('evento-filter-form').submit();">
+                                        @foreach($eventosParaSelector as $evento)
+                                            <option value="{{ $evento->id }}" {{ ($eventoId == $evento->id) ? 'selected' : '' }}>
+                                                {{ \Carbon\Carbon::parse($evento->fecha_evento)->format('d/m/Y') }} - {{ $evento->descripcion ?? 'Sin descripción' }}
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                </form>
+                            </div>
+                        @elseif($eventoSeleccionado)
+                             <div class="mb-4 p-4 bg-blue-50 border border-blue-200 text-blue-800 rounded-md">
                                 Mostrando invitados para el evento del <strong>{{ \Carbon\Carbon::parse($eventoSeleccionado->fecha_evento)->format('d/m/Y') }}</strong>.
                             </div>
                         @else
-                             <div class="mb-4 p-4 bg-yellow-50 border border-yellow-200 text-yellow-800 rounded-md">
-                                No hay un evento próximo activo en este momento.
+                            <div class="mb-4 p-4 bg-yellow-50 border border-yellow-200 text-yellow-800 rounded-md">
+                                No hay eventos próximos activos en este momento.
                             </div>
                         @endif
                     @endif
 
-                    {{-- CONTENEDOR PARA LA TABLA --}}
                     <div id="invitados-table-container" class="overflow-x-auto">
                         @include('invitados._invitados_table')
                     </div>
@@ -79,6 +91,9 @@
             let debounceTimer;
 
             function fetchInvitados() {
+                // Solo activa la búsqueda si los elementos existen (para Admin)
+                if (!searchInput || !eventoSelect) return;
+
                 const searchValue = searchInput.value;
                 const eventoId = eventoSelect.value;
                 const url = `{{ route('invitados.index') }}?search=${encodeURIComponent(searchValue)}&evento_id=${encodeURIComponent(eventoId)}`;
@@ -90,29 +105,25 @@
                 })
                 .then(response => response.text())
                 .then(html => {
-                    const parser = new DOMParser();
-                    const doc = parser.parseFromString(html, 'text/html');
-                    const newTable = doc.getElementById('invitados-table-container').innerHTML;
-                    tableContainer.innerHTML = newTable;
+                    tableContainer.innerHTML = html;
                 })
                 .catch(error => console.error('Error fetching a los invitados:', error));
             }
 
-            searchInput.addEventListener('keyup', () => {
-                clearTimeout(debounceTimer);
-                debounceTimer = setTimeout(fetchInvitados, 300);
-            });
-
-            eventoSelect.addEventListener('change', fetchInvitados);
+            if(searchInput && eventoSelect) {
+                searchInput.addEventListener('keyup', () => {
+                    clearTimeout(debounceTimer);
+                    debounceTimer = setTimeout(fetchInvitados, 300);
+                });
+                eventoSelect.addEventListener('change', fetchInvitados);
+            }
         });
     </script>
     
     <script>
-        // Este script se mantiene para el toggle de ingreso
         document.addEventListener('DOMContentLoaded', function () {
             const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
             
-            // Se necesita delegación de eventos porque la tabla se recarga dinámicamente
             document.getElementById('invitados-table-container').addEventListener('change', function(event) {
                 if (event.target.classList.contains('ingreso-checkbox')) {
                     const checkbox = event.target;
@@ -158,7 +169,6 @@
                 }
             });
 
-             // Aplicar estilo inicial a las filas
             document.querySelectorAll('.ingreso-checkbox').forEach(function (checkbox) {
                 const row = checkbox.closest('tr');
                 if (checkbox.checked) {

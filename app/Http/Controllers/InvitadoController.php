@@ -17,15 +17,20 @@ class InvitadoController extends Controller
         $search = $request->input('search');
         $eventoId = $request->input('evento_id');
 
-        // Determinar el evento actual (el próximo)
-        $eventoActual = Evento::where('fecha_evento', '>=', now()->toDateString())->orderBy('fecha_evento', 'asc')->first();
+        // Obtenemos los eventos futuros para la lógica de selección
+        $eventosFuturos = Evento::where('fecha_evento', '>=', now()->toDateString())->orderBy('fecha_evento', 'asc')->get();
 
-        // Para RRPP y Cajero, forzamos que solo vean el evento actual
-        if (in_array($user->rol, ['RRPP', 'CAJERO'])) {
-            $eventoId = $eventoActual ? $eventoActual->id : null;
-        } elseif (!$request->has('evento_id') && $user->rol === 'ADMIN') {
-            // Para admin, por defecto también muestra el último
-            $eventoId = $eventoActual ? $eventoActual->id : null;
+        // Lógica de selección de evento por defecto
+        if (!$request->has('evento_id')) {
+            if (in_array($user->rol, ['RRPP', 'CAJERO'])) {
+                // Si hay un solo evento futuro, se selecciona automáticamente
+                if ($eventosFuturos->count() === 1) {
+                    $eventoId = $eventosFuturos->first()->id;
+                }
+            } elseif ($user->rol === 'ADMIN') {
+                // Para admin, por defecto muestra el próximo evento si existe
+                $eventoId = $eventosFuturos->first()->id ?? null;
+            }
         }
 
         $query = Invitado::query();
@@ -34,13 +39,12 @@ class InvitadoController extends Controller
             $query->where('usuario_id', $user->id);
         }
 
+        // Si no hay evento ID (ni por request ni por defecto), RRPP y Cajero no ven nada,
+        // excepto si hay múltiples eventos futuros para que elijan.
         if ($eventoId) {
             $query->where('evento_id', $eventoId);
-        } else {
-            // Si no hay evento actual, RRPP y Cajero no ven nada
-            if (in_array($user->rol, ['RRPP', 'CAJERO'])) {
-                $query->whereRaw('1 = 0'); // Condición falsa para no devolver resultados
-            }
+        } elseif (in_array($user->rol, ['RRPP', 'CAJERO']) && $eventosFuturos->count() !== 1) {
+            $query->whereRaw('1 = 0');
         }
 
         $query->when($search, function ($q, $search) {
@@ -54,13 +58,20 @@ class InvitadoController extends Controller
         });
 
         $invitados = $query->with(['evento', 'beneficios', 'rrpp'])->latest()->get();
-        $eventos = Evento::orderBy('fecha_evento', 'desc')->get();
+        // Los admins ven todos los eventos, los demás roles solo los futuros
+        $eventosParaSelector = $user->rol === 'ADMIN' ? Evento::orderBy('fecha_evento', 'desc')->get() : $eventosFuturos;
+
         $eventoSeleccionado = $eventoId ? Evento::find($eventoId) : null;
 
+        // Si es una petición AJAX, solo devolvemos la tabla
+        if ($request->ajax()) {
+            return view('invitados._invitados_table', compact('invitados'))->render();
+        }
 
-        return view('invitados.index', compact('invitados', 'search', 'eventos', 'eventoId', 'eventoSeleccionado'));
+        return view('invitados.index', compact('invitados', 'search', 'eventosParaSelector', 'eventoId', 'eventoSeleccionado'));
     }
 
+    // ... (El resto de los métodos del controlador permanecen igual) ...
     public function create()
     {
         $this->authorizeRole(['RRPP', 'ADMIN']);
