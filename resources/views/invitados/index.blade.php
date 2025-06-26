@@ -28,8 +28,7 @@
                     @endif
 
                     {{-- Filtros --}}
-                    @if(Auth::user()->rol === 'ADMIN' )
-                        {{-- Filtros para ADMIN --}}
+                    @if(in_array(Auth::user()->rol, ['ADMIN', 'CAJERO']))
                         <div class="mb-4">
                             <div class="flex items-center space-x-4">
                                 <div class="flex-grow">
