@@ -28,7 +28,7 @@
                     @endif
 
                     {{-- Filtros --}}
-                    @if(Auth::user()->rol === 'ADMIN')
+                    @if(Auth::user()->rol === 'ADMIN' )
                         {{-- Filtros para ADMIN --}}
                         <div class="mb-4">
                             <div class="flex items-center space-x-4">

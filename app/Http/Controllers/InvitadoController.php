@@ -76,21 +76,15 @@ class InvitadoController extends Controller
         $this->authorizeRole(['RRPP', 'ADMIN']);
 
         $user = Auth::user();
-        $eventos = collect();
 
-        if ($user->rol === 'ADMIN') {
-            $eventos = Evento::where('fecha_evento', '>=', now()->toDateString())->orderBy('fecha_evento', 'asc')->get();
-        } else { // RRPP
-            $eventoActual = Evento::where('fecha_evento', '>=', now()->toDateString())->orderBy('fecha_evento', 'asc')->first();
-            if ($eventoActual) {
-                $eventos->push($eventoActual);
-            }
-        }
+        $eventos = Evento::where('fecha_evento', '>=', now()->toDateString())
+            ->orderBy('fecha_evento', 'asc')
+            ->get();
 
         $beneficios = Beneficio::all();
 
         if ($user->rol === 'RRPP' && $eventos->isEmpty()) {
-            return redirect()->route('dashboard')->with('error', 'No hay un evento próximo activo para cargar invitados.');
+            return redirect()->route('dashboard')->with('error', 'No hay eventos próximos activos para cargar invitados.');
         }
 
         return view('invitados.create', compact('eventos', 'beneficios'));
@@ -109,12 +103,7 @@ class InvitadoController extends Controller
             'cantidades.*' => 'required_with:beneficios.*|integer|min:1',
         ]);
 
-        if (Auth::user()->rol === 'RRPP') {
-            $eventoActual = Evento::where('fecha_evento', '>=', now()->toDateString())->orderBy('fecha_evento', 'asc')->first();
-            if (!$eventoActual || $request->evento_id != $eventoActual->id) {
-                abort(403, 'Solo puedes agregar invitados al próximo evento activo.');
-            }
-        }
+
 
         $invitado = Invitado::create([
             'nombre_completo' => $request->nombre_completo,
