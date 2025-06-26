@@ -5,13 +5,29 @@ use App\Http\Controllers\EventoController;
 use App\Http\Controllers\UsuarioController;
 use App\Http\Controllers\InvitadoController;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Auth;
 
 Route::get('/', function () {
     return view('welcome');
 });
 
 Route::get('/dashboard', function () {
-    return view('dashboard');
+    $user = Auth::user();
+
+    if ($user->rol !== 'ADMIN') {
+        return redirect()->route('invitados.index');
+    }
+
+    // Lógica para el dashboard del ADMIN
+    $eventoController = new EventoController();
+    $ultimoEvento = App\Models\Evento::orderBy('fecha_evento', 'desc')->first();
+    $metricasUltimoEvento = [];
+
+    if ($ultimoEvento) {
+        $metricasUltimoEvento = $eventoController->obtenerMetricasDeEvento($ultimoEvento->id);
+    }
+
+    return view('dashboard', compact('ultimoEvento', 'metricasUltimoEvento'));
 })->middleware(['auth', 'verified'])->name('dashboard');
 
 Route::middleware('auth')->group(function () {

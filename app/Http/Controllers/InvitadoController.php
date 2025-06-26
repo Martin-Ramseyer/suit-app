@@ -54,9 +54,11 @@ class InvitadoController extends Controller
         $invitados = $query->with(['evento', 'beneficios', 'rrpp'])->latest()->get();
 
         if (in_array($user->rol, ['ADMIN', 'CAJERO'])) {
+            // Para Admin y Cajero, obtenemos todos los eventos (pasados y futuros).
             $eventosParaSelector = Evento::orderBy('fecha_evento', 'desc')->get();
-        } elseif ($user->rol === 'RRPP' && $eventosFuturos->count() > 1) {
-            // La lógica para RRPP se mantiene igual, mostrándole solo los eventos futuros.
+        } else {
+            // Para RRPP (y cualquier otro rol), solo pasamos los eventos futuros.
+            // Si no hay ninguno, será una colección vacía, pero la variable existirá.
             $eventosParaSelector = $eventosFuturos;
         }
 

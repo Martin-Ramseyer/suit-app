@@ -10,27 +10,26 @@
 
                 <div class="hidden space-x-8 sm:-my-px sm:ms-10 sm:flex">
                     
-                    {{-- El Dashboard es ahora visible para todos los usuarios autenticados --}}
-                    <x-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')">
-                        {{ __('Dashboard') }}
-                    </x-nav-link>
                     
                     {{-- ================= Enlaces solo para ADMIN ================= --}}
                     @if(Auth::user()->rol === 'ADMIN')
+                    <x-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')">
+                        {{ __('Dashboard') }}
+                    </x-nav-link>
                         <x-nav-link :href="route('usuarios.index')" :active="request()->routeIs('usuarios.*')">
-            {{ __('Gestionar Usuarios') }}
-        </x-nav-link>
+                        {{ __('Gestionar Usuarios') }}
+                    </x-nav-link>
 
-        {{-- CORREGIDO: Condición active más específica para que no choque con 'historial' --}}
-        <x-nav-link :href="route('eventos.index')" 
-                    :active="request()->routeIs('eventos.index', 'eventos.create', 'eventos.edit')">
-            {{ __('Gestionar Eventos') }}
-        </x-nav-link>
+                    {{-- CORREGIDO: Condición active más específica para que no choque con 'historial' --}}
+                    <x-nav-link :href="route('eventos.index')" 
+                                :active="request()->routeIs('eventos.index', 'eventos.create', 'eventos.edit')">
+                        {{ __('Gestionar Eventos') }}
+                    </x-nav-link>
 
-        {{-- Condición active para el nuevo enlace --}}
-        <x-nav-link :href="route('eventos.historial')" :active="request()->routeIs('eventos.historial')">
-            {{ __('Historial Eventos') }}
-        </x-nav-link>
+                    {{-- Condición active para el nuevo enlace --}}
+                    <x-nav-link :href="route('eventos.historial')" :active="request()->routeIs('eventos.historial')">
+                        {{ __('Historial Eventos') }}
+                    </x-nav-link>
                     @endif
 
                     {{-- ================= Enlaces para RRPP, ADMIN, CAJERO ================= --}}
@@ -63,7 +62,7 @@
 
                     <x-slot name="content">
                         <x-dropdown-link :href="route('profile.edit')">
-                            {{ __('Profile') }}
+                            {{ __('Cambiar contraseña') }}
                         </x-dropdown-link>
 
                         <form method="POST" action="{{ route('logout') }}">
@@ -71,7 +70,7 @@
                             <x-dropdown-link :href="route('logout')"
                                     onclick="event.preventDefault();
                                                 this.closest('form').submit();">
-                                {{ __('Log Out') }}
+                                {{ __('Cerrar sesión') }}
                             </x-dropdown-link>
                         </form>
                     </x-slot>

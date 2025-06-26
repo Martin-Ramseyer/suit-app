@@ -174,4 +174,25 @@ class EventoController extends Controller
             'metricas'
         ));
     }
+
+    public function obtenerMetricasDeEvento($eventoId)
+    {
+        $invitados = Invitado::where('evento_id', $eventoId)->get();
+        $invitadosQueIngresaron = $invitados->where('ingreso', true);
+
+        $totalPersonas = $invitados->count() + $invitados->sum('numero_acompanantes');
+        $totalIngresaron = $invitadosQueIngresaron->count() + $invitadosQueIngresaron->sum('numero_acompanantes');
+
+        $rrppConteoIngresos = $invitadosQueIngresaron->groupBy('rrpp.nombre_completo')
+            ->map(fn($invitadosDelRrpp) => $invitadosDelRrpp->count() + $invitadosDelRrpp->sum('numero_acompanantes'))
+            ->sortDesc();
+
+        $topRrpp = $rrppConteoIngresos->isNotEmpty() ? $rrppConteoIngresos->keys()->first() . ' (' . $rrppConteoIngresos->first() . ')' : null;
+
+        return [
+            'totalInvitados' => $totalPersonas,
+            'invitadosIngresaron' => $totalIngresaron,
+            'topRrpp' => $topRrpp,
+        ];
+    }
 }
