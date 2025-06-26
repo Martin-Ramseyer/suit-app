@@ -27,8 +27,9 @@
                         </div>
                     @endif
 
-                    {{-- Filtros para ADMIN --}}
+                    {{-- Filtros --}}
                     @if(Auth::user()->rol === 'ADMIN')
+                        {{-- Filtros para ADMIN --}}
                         <div class="mb-4">
                             <div class="flex items-center space-x-4">
                                 <div class="flex-grow">
@@ -48,22 +49,29 @@
                                 </div>
                             </div>
                         </div>
-                    @else
+                    @elseif($eventosParaSelector->isNotEmpty())
                         {{-- Selector para RRPP/Cajero si hay MÁS DE UN evento futuro --}}
-                        @if(in_array(Auth::user()->rol, ['RRPP', 'CAJERO']) && $eventosParaSelector->count() > 1)
-                            <div class="mb-4">
-                                <form id="evento-filter-form" action="{{ route('invitados.index') }}" method="GET">
+                         <div class="mb-4">
+                            <form id="evento-filter-form" action="{{ route('invitados.index') }}" method="GET" class="flex items-center space-x-4">
+                                <div class="flex-grow">
                                     <x-input-label for="evento_id" :value="__('Selecciona un evento próximo')" />
-                                    <select name="evento_id" id="evento-select-rol" class="w-full md:w-1/2 rounded-md shadow-sm border-gray-300" onchange="document.getElementById('evento-filter-form').submit();">
+                                    <select name="evento_id" id="evento-select-rol" class="w-full rounded-md shadow-sm border-gray-300" onchange="this.form.submit()">
                                         @foreach($eventosParaSelector as $evento)
                                             <option value="{{ $evento->id }}" {{ ($eventoId == $evento->id) ? 'selected' : '' }}>
                                                 {{ \Carbon\Carbon::parse($evento->fecha_evento)->format('d/m/Y') }} - {{ $evento->descripcion ?? 'Sin descripción' }}
                                             </option>
                                         @endforeach
                                     </select>
-                                </form>
-                            </div>
-                        @elseif($eventoSeleccionado)
+                                </div>
+                                <div class="flex-grow">
+                                     <x-input-label for="search" :value="__('Buscar por Nombre')" />
+                                    <x-text-input type="text" id="search-input" name="search" class="w-full" :value="request('search')" />
+                                </div>
+                            </form>
+                        </div>
+                    @else
+                        {{-- Mensaje para RRPP/Cajero cuando no hay selector --}}
+                        @if($eventoSeleccionado)
                              <div class="mb-4 p-4 bg-blue-50 border border-blue-200 text-blue-800 rounded-md">
                                 Mostrando invitados para el evento del <strong>{{ \Carbon\Carbon::parse($eventoSeleccionado->fecha_evento)->format('d/m/Y') }}</strong>.
                             </div>
@@ -74,7 +82,7 @@
                         @endif
                     @endif
 
-                    <div id="invitados-table-container" class="overflow-x-auto">
+                    <div id="invitados-table-container">
                         @include('invitados._invitados_table')
                     </div>
                 </div>
@@ -86,12 +94,12 @@
     <script>
         document.addEventListener('DOMContentLoaded', function () {
             const searchInput = document.getElementById('search-input');
-            const eventoSelect = document.getElementById('evento-select');
+            const eventoSelect = document.getElementById('evento-select'); // Para admin
             const tableContainer = document.getElementById('invitados-table-container');
             let debounceTimer;
 
             function fetchInvitados() {
-                // Solo activa la búsqueda si los elementos existen (para Admin)
+                // Solo para el panel de Admin
                 if (!searchInput || !eventoSelect) return;
 
                 const searchValue = searchInput.value;
@@ -99,17 +107,14 @@
                 const url = `{{ route('invitados.index') }}?search=${encodeURIComponent(searchValue)}&evento_id=${encodeURIComponent(eventoId)}`;
 
                 fetch(url, {
-                    headers: {
-                        'X-Requested-With': 'XMLHttpRequest'
-                    }
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
                 })
                 .then(response => response.text())
-                .then(html => {
-                    tableContainer.innerHTML = html;
-                })
+                .then(html => { tableContainer.innerHTML = html; })
                 .catch(error => console.error('Error fetching a los invitados:', error));
             }
-
+            
+            // Event Listeners para el Admin
             if(searchInput && eventoSelect) {
                 searchInput.addEventListener('keyup', () => {
                     clearTimeout(debounceTimer);
@@ -117,10 +122,22 @@
                 });
                 eventoSelect.addEventListener('change', fetchInvitados);
             }
+
+            // Event listener para el buscador de RRPP/Cajero (si existe)
+            const searchInputRol = document.getElementById('search-input-rol');
+            if (searchInputRol) {
+                 searchInputRol.addEventListener('keyup', () => {
+                    clearTimeout(debounceTimer);
+                    debounceTimer = setTimeout(() => {
+                        document.getElementById('evento-filter-form').submit();
+                    }, 500);
+                });
+            }
         });
     </script>
     
     <script>
+        // Script para el toggle de ingreso (sin cambios)
         document.addEventListener('DOMContentLoaded', function () {
             const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
             
@@ -132,31 +149,21 @@
 
                      function applyRowStyle(cb) {
                         const row = cb.closest('tr');
-                        if (cb.checked) {
-                            row.classList.add('bg-green-100');
-                        } else {
-                            row.classList.remove('bg-green-100');
-                        }
+                        if (cb.checked) { row.classList.add('bg-green-100'); } else { row.classList.remove('bg-green-100'); }
                     }
 
                     fetch(`/invitados/${invitadoId}/toggle-ingreso`, {
                         method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'X-CSRF-TOKEN': csrfToken
-                        },
+                        headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken },
                         body: JSON.stringify({ ingreso: isChecked })
                     })
                     .then(response => {
-                        if (!response.ok) {
-                            return response.json().then(err => Promise.reject(err));
-                        }
+                        if (!response.ok) { return response.json().then(err => Promise.reject(err)); }
                         return response.json();
                     })
                     .then(data => {
-                        if (data.success) {
-                           applyRowStyle(checkbox);
-                        } else {
+                        if (data.success) { applyRowStyle(checkbox); } 
+                        else {
                             alert(data.message || 'Hubo un error al actualizar el estado.');
                             checkbox.checked = !isChecked;
                         }
@@ -171,11 +178,7 @@
 
             document.querySelectorAll('.ingreso-checkbox').forEach(function (checkbox) {
                 const row = checkbox.closest('tr');
-                if (checkbox.checked) {
-                    row.classList.add('bg-green-100');
-                } else {
-                    row.classList.remove('bg-green-100');
-                }
+                if (checkbox.checked) { row.classList.add('bg-green-100'); } else { row.classList.remove('bg-green-100'); }
             });
         });
     </script>

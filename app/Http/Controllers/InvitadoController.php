@@ -17,20 +17,13 @@ class InvitadoController extends Controller
         $search = $request->input('search');
         $eventoId = $request->input('evento_id');
 
-        // Obtenemos los eventos futuros para la lógica de selección
         $eventosFuturos = Evento::where('fecha_evento', '>=', now()->toDateString())->orderBy('fecha_evento', 'asc')->get();
 
-        // Lógica de selección de evento por defecto
-        if (!$request->has('evento_id')) {
-            if (in_array($user->rol, ['RRPP', 'CAJERO'])) {
-                // Si hay un solo evento futuro, se selecciona automáticamente
-                if ($eventosFuturos->count() === 1) {
-                    $eventoId = $eventosFuturos->first()->id;
-                }
-            } elseif ($user->rol === 'ADMIN') {
-                // Para admin, por defecto muestra el próximo evento si existe
-                $eventoId = $eventosFuturos->first()->id ?? null;
-            }
+        // Lógica de selección de evento por defecto corregida
+        // Si no se especifica un evento en el request y hay eventos futuros,
+        // se selecciona el más próximo por defecto.
+        if (!$request->filled('evento_id') && $eventosFuturos->isNotEmpty()) {
+            $eventoId = $eventosFuturos->first()->id;
         }
 
         $query = Invitado::query();
@@ -39,12 +32,13 @@ class InvitadoController extends Controller
             $query->where('usuario_id', $user->id);
         }
 
-        // Si no hay evento ID (ni por request ni por defecto), RRPP y Cajero no ven nada,
-        // excepto si hay múltiples eventos futuros para que elijan.
         if ($eventoId) {
             $query->where('evento_id', $eventoId);
-        } elseif (in_array($user->rol, ['RRPP', 'CAJERO']) && $eventosFuturos->count() !== 1) {
-            $query->whereRaw('1 = 0');
+        } else {
+            // Si no hay evento (ni en request ni por defecto), los no-admin no ven nada.
+            if (in_array($user->rol, ['RRPP', 'CAJERO'])) {
+                $query->whereRaw('1 = 0');
+            }
         }
 
         $query->when($search, function ($q, $search) {
@@ -58,12 +52,16 @@ class InvitadoController extends Controller
         });
 
         $invitados = $query->with(['evento', 'beneficios', 'rrpp'])->latest()->get();
-        // Los admins ven todos los eventos, los demás roles solo los futuros
-        $eventosParaSelector = $user->rol === 'ADMIN' ? Evento::orderBy('fecha_evento', 'desc')->get() : $eventosFuturos;
+
+        $eventosParaSelector = collect();
+        if ($user->rol === 'ADMIN') {
+            $eventosParaSelector = Evento::orderBy('fecha_evento', 'desc')->get();
+        } elseif ($eventosFuturos->count() > 1) {
+            $eventosParaSelector = $eventosFuturos;
+        }
 
         $eventoSeleccionado = $eventoId ? Evento::find($eventoId) : null;
 
-        // Si es una petición AJAX, solo devolvemos la tabla
         if ($request->ajax()) {
             return view('invitados._invitados_table', compact('invitados'))->render();
         }
@@ -72,12 +70,13 @@ class InvitadoController extends Controller
     }
 
     // ... (El resto de los métodos del controlador permanecen igual) ...
+
     public function create()
     {
         $this->authorizeRole(['RRPP', 'ADMIN']);
 
         $user = Auth::user();
-        $eventos = collect(); // Inicializamos como colección vacía
+        $eventos = collect();
 
         if ($user->rol === 'ADMIN') {
             $eventos = Evento::where('fecha_evento', '>=', now()->toDateString())->orderBy('fecha_evento', 'asc')->get();
@@ -110,7 +109,6 @@ class InvitadoController extends Controller
             'cantidades.*' => 'required_with:beneficios.*|integer|min:1',
         ]);
 
-        // Verificación adicional para RRPP
         if (Auth::user()->rol === 'RRPP') {
             $eventoActual = Evento::where('fecha_evento', '>=', now()->toDateString())->orderBy('fecha_evento', 'asc')->first();
             if (!$eventoActual || $request->evento_id != $eventoActual->id) {
@@ -222,7 +220,6 @@ class InvitadoController extends Controller
             return;
         }
 
-        // RRPP solo puede editar invitados de eventos futuros
         $eventoDelInvitado = Evento::find($invitado->evento_id);
         if ($user->rol === 'RRPP' && $eventoDelInvitado && $eventoDelInvitado->fecha_evento < now()->toDateString()) {
             abort(403, 'No puedes modificar invitados de eventos pasados.');
