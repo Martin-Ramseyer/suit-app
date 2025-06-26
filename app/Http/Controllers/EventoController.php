@@ -86,17 +86,16 @@ class EventoController extends Controller
             ->with('success', 'Evento eliminado exitosamente.');
     }
 
+
     public function historial(Request $request)
     {
-        // 1. Obtener todos los eventos para el selector.
         $eventos = Evento::orderBy('fecha_evento', 'desc')->get();
 
         $invitados = collect();
         $eventoSeleccionado = null;
-        // Obtenemos el ID del evento que el usuario seleccionó en el formulario.
+        $metricas = null;
         $eventoIdSeleccionado = $request->input('evento_id');
 
-        // 2. Si se seleccionó un ID, procedemos a buscar.
         if ($eventoIdSeleccionado) {
             $eventoSeleccionado = Evento::find($eventoIdSeleccionado);
 
@@ -105,11 +104,74 @@ class EventoController extends Controller
                     ->with(['rrpp', 'beneficios'])
                     ->orderBy('nombre_completo', 'asc')
                     ->get();
+
+                $totalPersonas = $invitados->count() + $invitados->sum('numero_acompanantes');
+                $invitadosQueIngresaron = $invitados->where('ingreso', true);
+                $totalIngresaron = $invitadosQueIngresaron->count() + $invitadosQueIngresaron->sum('numero_acompanantes');
+
+                // Inicializamos el contador de beneficios
+                $beneficiosContador = [
+                    'Pulsera Vip' => 0,
+                    'Entrada Free' => 0,
+                    'Consumición' => 0,
+                ];
+
+                foreach ($invitadosQueIngresaron as $invitado) {
+                    // --- FIN DEL CAMBIO ---
+                    foreach ($invitado->beneficios as $beneficio) {
+                        if (isset($beneficiosContador[$beneficio->nombre_beneficio])) {
+                            $beneficiosContador[$beneficio->nombre_beneficio] += $beneficio->pivot->cantidad;
+                        }
+                    }
+                }
+
+                $topRrpp = null;
+                $bottomRrpp = null;
+
+                if ($invitadosQueIngresaron->isNotEmpty()) {
+                    $rrppConteoIngresos = $invitadosQueIngresaron->groupBy('rrpp.nombre_completo')
+                        ->map(function ($invitadosDelRrpp) {
+                            return $invitadosDelRrpp->sum('numero_acompanantes') + $invitadosDelRrpp->count();
+                        })
+                        ->sortDesc();
+
+                    if ($rrppConteoIngresos->isNotEmpty()) {
+                        $maxIngresos = $rrppConteoIngresos->max();
+                        $topRrppNombres = $rrppConteoIngresos->filter(function ($count) use ($maxIngresos) {
+                            return $count === $maxIngresos;
+                        })->keys();
+                        $topRrpp = $topRrppNombres->map(function ($nombre) use ($maxIngresos) {
+                            return "{$nombre} ({$maxIngresos})";
+                        })->implode(', ');
+
+                        $minIngresos = $rrppConteoIngresos->min();
+                        $bottomRrppNombres = $rrppConteoIngresos->filter(function ($count) use ($minIngresos) {
+                            return $count === $minIngresos;
+                        })->keys();
+
+                        $bottomRrpp = $bottomRrppNombres->map(function ($nombre) use ($minIngresos) {
+                            return "{$nombre} ({$minIngresos})";
+                        })->implode(', ');
+                    }
+                }
+
+                $metricas = [
+                    'totalInvitados' => $totalPersonas,
+                    'invitadosIngresaron' => $totalIngresaron,
+                    'beneficios' => $beneficiosContador,
+                    'topRrpp' => $topRrpp,
+                    'bottomRrpp' => $bottomRrpp,
+                ];
             }
         }
 
-        // 3. Retornar la vista con los datos necesarios.
-        //    Añadimos 'eventoIdSeleccionado' a las variables que pasamos a la vista.
-        return view('eventos.historial', compact('eventos', 'invitados', 'eventoSeleccionado', 'eventoIdSeleccionado'));
+        // Retornar la vista con los datos necesarios.
+        return view('eventos.historial', compact(
+            'eventos',
+            'invitados',
+            'eventoSeleccionado',
+            'eventoIdSeleccionado',
+            'metricas'
+        ));
     }
 }
