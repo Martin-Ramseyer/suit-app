@@ -28,7 +28,7 @@
                     @endif
 
                     {{-- Filtros --}}
-                    @if(in_array(Auth::user()->rol, ['ADMIN', 'CAJERO']))
+                    @if(Auth::user()->rol == 'ADMIN')
                         <div class="mb-4">
                             <div class="flex items-center space-x-4">
                                 <div class="flex-grow">
@@ -48,8 +48,8 @@
                                 </div>
                             </div>
                         </div>
-                    @elseif($eventosParaSelector->isNotEmpty())
-                        {{-- Selector para RRPP/Cajero si hay MÁS DE UN evento futuro --}}
+                    @elseif(Auth::user()->rol == 'RRPP' && $eventosParaSelector->isNotEmpty())
+                        {{-- Selector para RRPP si hay MÁS DE UN evento futuro --}}
                          <div class="mb-4">
                             <form id="evento-filter-form" action="{{ route('invitados.index') }}" method="GET" class="flex items-center space-x-4">
                                 <div class="flex-grow">
@@ -72,7 +72,8 @@
                         {{-- Mensaje para RRPP/Cajero cuando no hay selector --}}
                         @if($eventoSeleccionado)
                              <div class="mb-4 p-4 bg-blue-50 border border-blue-200 text-blue-800 rounded-md">
-                                Mostrando invitados para el evento del <strong>{{ \Carbon\Carbon::parse($eventoSeleccionado->fecha_evento)->format('d/m/Y') }}</strong>.
+                                Mostrando invitados para el evento del <strong>{{ \Carbon\Carbon::parse($eventoSeleccionado->fecha_evento)->format('d/m/Y') }}</strong>.  <strong>{{ $eventoSeleccionado->descripcion }}</strong>.
+            
                             </div>
                         @else
                             <div class="mb-4 p-4 bg-yellow-50 border border-yellow-200 text-yellow-800 rounded-md">

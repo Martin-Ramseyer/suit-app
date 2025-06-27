@@ -42,6 +42,8 @@ Route::middleware('role:ADMIN')->group(function () {
 
     Route::resource('eventos', EventoController::class);
     Route::get('historial/eventos', [EventoController::class, 'historial'])->name('eventos.historial');
+
+    Route::post('eventos/{evento}/toggle-activo', [EventoController::class, 'toggleActivo'])->name('eventos.toggleActivo');
 });
 
 Route::middleware('role:RRPP,ADMIN,CAJERO')->group(function () {

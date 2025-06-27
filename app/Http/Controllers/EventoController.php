@@ -195,4 +195,13 @@ class EventoController extends Controller
             'topRrpp' => $topRrpp,
         ];
     }
+
+    public function toggleActivo(Evento $evento)
+    {
+        Evento::where('id', '!=', $evento->id)->update(['activo' => false]);
+        $evento->activo = !$evento->activo;
+        $evento->save();
+
+        return redirect()->route('eventos.index')->with('success', 'Estado del evento actualizado.');
+    }
 }

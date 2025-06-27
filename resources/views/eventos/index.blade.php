@@ -42,13 +42,36 @@
                                         <td class="px-6 py-4 text-base text-gray-500">{{ $evento->descripcion }}</td>
                                         
                                         <td class="px-6 py-4 whitespace-nowrap text-right text-base font-medium">
-                                            <form action="{{ route('eventos.destroy', $evento->id) }}" method="POST">
-                                                <a href="{{ route('eventos.edit', $evento->id) }}" class="text-indigo-600 hover:text-indigo-900 mr-4">Editar</a>
-                                                @csrf
-                                                @method('DELETE')
-                                                <button type="submit" class="text-red-600 hover:text-red-900">Eliminar</button>
-                                            </form>
-                                        </td>
+    <div class="flex items-center justify-end gap-x-3">
+
+        <form action="{{ route('eventos.toggleActivo', $evento->id) }}" method="POST">
+            @csrf
+            <button type="submit" 
+                    class="px-3 py-1.5 text-sm font-semibold rounded-md border transition-colors duration-150
+                           {{ $evento->activo 
+                                ? 'border-green-600 text-green-700 hover:bg-green-600 hover:text-white' 
+                                : 'border-gray-400 text-gray-500 hover:bg-gray-400 hover:text-white' }}">
+                {{ $evento->activo ? '● Activo' : '○ Activar' }}
+            </button>
+        </form>
+
+        <a href="{{ route('eventos.edit', $evento->id) }}"
+           class="inline-block px-3 py-1.5 text-sm font-semibold text-indigo-700 border border-indigo-600 rounded-md hover:bg-indigo-600 hover:text-white transition-colors duration-150">
+            Editar
+        </a>
+
+        <form action="{{ route('eventos.destroy', $evento->id) }}" method="POST" onsubmit="return confirm('¿Estás seguro de que deseas eliminar este evento?');">
+            @csrf
+            @method('DELETE')
+            <button type="submit" 
+                    class="px-3 py-1.5 text-sm font-semibold text-white bg-red-600 hover:bg-red-700 rounded-md shadow-sm transition-colors duration-150">
+                Eliminar
+            </button>
+        </form>
+
+    </div>
+</td>
+                                        
                                     </tr>
                                 @empty
                                     <tr>

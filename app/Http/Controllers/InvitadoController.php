@@ -16,13 +16,16 @@ class InvitadoController extends Controller
         $user = Auth::user();
         $search = $request->input('search');
         $eventoId = $request->input('evento_id');
+        $eventoActivo = Evento::where('activo', true)->first();
+
+        // Si el usuario es CAJERO, siempre usará el evento activo
+        if ($user->rol === 'CAJERO') {
+            $eventoId = $eventoActivo ? $eventoActivo->id : null;
+        }
 
         $eventosFuturos = Evento::where('fecha_evento', '>=', now()->toDateString())->orderBy('fecha_evento', 'asc')->get();
 
-        // Lógica de selección de evento por defecto corregida
-        // Si no se especifica un evento en el request y hay eventos futuros,
-        // se selecciona el más próximo por defecto.
-        if (!$request->filled('evento_id') && $eventosFuturos->isNotEmpty()) {
+        if (!$request->filled('evento_id') && $eventosFuturos->isNotEmpty() && $user->rol !== 'CAJERO') {
             $eventoId = $eventosFuturos->first()->id;
         }
 
@@ -35,7 +38,6 @@ class InvitadoController extends Controller
         if ($eventoId) {
             $query->where('evento_id', $eventoId);
         } else {
-            // Si no hay evento (ni en request ni por defecto), los no-admin no ven nada.
             if (in_array($user->rol, ['RRPP', 'CAJERO'])) {
                 $query->whereRaw('1 = 0');
             }
@@ -54,15 +56,13 @@ class InvitadoController extends Controller
         $invitados = $query->with(['evento', 'beneficios', 'rrpp'])->latest()->get();
 
         if (in_array($user->rol, ['ADMIN', 'CAJERO'])) {
-            // Para Admin y Cajero, obtenemos todos los eventos (pasados y futuros).
             $eventosParaSelector = Evento::orderBy('fecha_evento', 'desc')->get();
         } else {
-            // Para RRPP (y cualquier otro rol), solo pasamos los eventos futuros.
-            // Si no hay ninguno, será una colección vacía, pero la variable existirá.
             $eventosParaSelector = $eventosFuturos;
         }
 
-        $eventoSeleccionado = $eventoId ? Evento::find($eventoId) : null;
+        // El evento seleccionado será el activo para el cajero
+        $eventoSeleccionado = $eventoId ? ($user->rol === 'CAJERO' ? $eventoActivo : Evento::find($eventoId)) : null;
 
         if ($request->ajax()) {
             return view('invitados._invitados_table', compact('invitados'))->render();
@@ -71,7 +71,6 @@ class InvitadoController extends Controller
         return view('invitados.index', compact('invitados', 'search', 'eventosParaSelector', 'eventoId', 'eventoSeleccionado'));
     }
 
-    // ... (El resto de los métodos del controlador permanecen igual) ...
 
     public function create()
     {
