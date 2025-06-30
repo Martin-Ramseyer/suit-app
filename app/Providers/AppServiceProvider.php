@@ -7,6 +7,8 @@ use App\Interfaces\UsuarioRepositoryInterface;
 use App\Repositories\UsuarioRepository;
 use App\Interfaces\InvitadoRepositoryInterface;
 use App\Repositories\InvitadoRepository;
+use App\Interfaces\EventoRepositoryInterface;
+use App\Repositories\EventoRepository;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -24,6 +26,11 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(
             InvitadoRepositoryInterface::class,
             InvitadoRepository::class
+        );
+
+        $this->app->bind(
+            EventoRepositoryInterface::class,
+            EventoRepository::class
         );
     }
 
