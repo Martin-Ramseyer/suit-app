@@ -3,8 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
-use App\Services\UsuarioService;
-use App\Services\MetricasService;
+use App\Services\Usuario\UsuarioService;
+use App\Services\Usuario\MetricasService;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
