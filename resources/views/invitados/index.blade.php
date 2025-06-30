@@ -1,20 +1,21 @@
 <x-app-layout>
-    <x-slot name="header">
-        <div class="flex justify-between items-center">
-            <h2 class="font-semibold text-xl text-gray-800 leading-tight">
-                @if(Auth::user()->rol == 'RRPP')
-                    {{ __('Mis Invitados') }}
-                @else
-                    {{ __('Lista de Invitados') }}
-                @endif
-            </h2>
-            @if(in_array(Auth::user()->rol, ['RRPP', 'ADMIN']))
-                <a href="{{ route('invitados.create') }}" class="inline-flex items-center px-4 py-2 bg-gray-800 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-gray-700">
-                    Cargar Invitado
-                </a>
-            @endif
-        </div>
-    </x-slot>
+        <x-slot name="header">
+        <div class="flex justify-between items-center">
+            <h2 class="font-semibold text-xl text-gray-800 leading-tight">
+                @if(Auth::user()->rol == 'RRPP')
+                    {{ __('Mis Invitados') }}
+                @else
+                    {{ __('Lista de Invitados') }}
+                @endif
+            </h2>
+            @if(in_array(Auth::user()->rol, ['RRPP', 'ADMIN', 'CAJERO']))
+                {{-- **CAMBIO**: Botón para cargar invitados solo visible para RRPP, Admin y Cajero --}}
+                <a href="{{ route('invitados.create') }}" class="inline-flex items-center px-4 py-2 bg-gray-800 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-gray-700">
+                    Cargar Invitado
+                </a>
+            @endif
+        </div>
+    </x-slot>
 
     <div class="py-12">
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
@@ -26,9 +27,16 @@
                             <span class="block sm:inline">{{ session('success') }}</span>
                         </div>
                     @endif
+                     @if (session('error'))
+                        <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
+                            <span class="block sm:inline">{{ session('error') }}</span>
+                        </div>
+                    @endif
+
 
                     {{-- Filtros --}}
                     @if(Auth::user()->rol == 'ADMIN')
+                        {{-- Filtros para ADMIN (sin cambios) --}}
                         <div class="mb-4">
                             <div class="flex items-center space-x-4">
                                 <div class="flex-grow">
@@ -49,7 +57,7 @@
                             </div>
                         </div>
                     @elseif(Auth::user()->rol == 'RRPP' && $eventosParaSelector->isNotEmpty())
-                        {{-- Selector para RRPP si hay MÁS DE UN evento futuro --}}
+                        {{-- Filtros para RRPP (sin cambios) --}}
                          <div class="mb-4">
                             <form id="evento-filter-form" action="{{ route('invitados.index') }}" method="GET" class="flex items-center space-x-4">
                                 <div class="flex-grow">
@@ -69,15 +77,22 @@
                             </form>
                         </div>
                     @else
-                        {{-- Mensaje para RRPP/Cajero cuando no hay selector --}}
+                        {{-- **CAMBIO**: Añadimos el buscador para el Cajero --}}
                         @if($eventoSeleccionado)
                              <div class="mb-4 p-4 bg-blue-50 border border-blue-200 text-blue-800 rounded-md">
-                                Mostrando invitados para el evento del <strong>{{ \Carbon\Carbon::parse($eventoSeleccionado->fecha_evento)->format('d/m/Y') }}</strong>.  <strong>{{ $eventoSeleccionado->descripcion }}</strong>.
-            
+                                <p class="font-bold">Mostrando invitados para el evento del <strong>{{ \Carbon\Carbon::parse($eventoSeleccionado->fecha_evento)->format('d/m/Y') }}</strong></p>
+                                <p>{{ $eventoSeleccionado->descripcion }}</p>
+                            </div>
+                            {{-- Formulario de búsqueda para el Cajero --}}
+                            <div class="mb-4">
+                                <form id="cajero-search-form" action="{{ route('invitados.index') }}" method="GET">
+                                    <x-input-label for="search" :value="__('Buscar por Nombre de Invitado o RRPP')" />
+                                    <x-text-input type="text" id="search-input-cajero" name="search" class="w-full" :value="request('search')" placeholder="Escribe un nombre para filtrar..." />
+                                </form>
                             </div>
                         @else
                             <div class="mb-4 p-4 bg-yellow-50 border border-yellow-200 text-yellow-800 rounded-md">
-                                No hay eventos próximos activos en este momento.
+                                No hay ningún evento activo en este momento.
                             </div>
                         @endif
                     @endif
@@ -93,63 +108,76 @@
     @push('scripts')
     <script>
         document.addEventListener('DOMContentLoaded', function () {
-            const searchInput = document.getElementById('search-input');
-            const eventoSelect = document.getElementById('evento-select'); // Para admin
-            const tableContainer = document.getElementById('invitados-table-container');
+            const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
             let debounceTimer;
 
-            function fetchInvitados() {
-                // Solo para el panel de Admin
-                if (!searchInput || !eventoSelect) return;
-
-                const searchValue = searchInput.value;
-                const eventoId = eventoSelect.value;
-                const url = `{{ route('invitados.index') }}?search=${encodeURIComponent(searchValue)}&evento_id=${encodeURIComponent(eventoId)}`;
+            function fetchInvitados(searchQuery, eventoId) {
+                const url = `{{ route('invitados.index') }}?search=${encodeURIComponent(searchQuery)}&evento_id=${encodeURIComponent(eventoId)}`;
+                const tableContainer = document.getElementById('invitados-table-container');
 
                 fetch(url, {
                     headers: { 'X-Requested-With': 'XMLHttpRequest' }
                 })
                 .then(response => response.text())
-                .then(html => { tableContainer.innerHTML = html; })
-                .catch(error => console.error('Error fetching a los invitados:', error));
+                .then(html => {
+                    tableContainer.innerHTML = html;
+                    attachCheckboxListeners(); // Re-adjuntar listeners a los nuevos checkboxes
+                })
+                .catch(error => console.error('Error al buscar invitados:', error));
             }
             
-            // Event Listeners para el Admin
-            if(searchInput && eventoSelect) {
-                searchInput.addEventListener('keyup', () => {
-                    clearTimeout(debounceTimer);
-                    debounceTimer = setTimeout(fetchInvitados, 300);
-                });
-                eventoSelect.addEventListener('change', fetchInvitados);
-            }
-
-            // Event listener para el buscador de RRPP/Cajero (si existe)
-            const searchInputRol = document.getElementById('search-input-rol');
-            if (searchInputRol) {
-                 searchInputRol.addEventListener('keyup', () => {
+            // Listener para Admin
+            const adminSearchInput = document.getElementById('search-input');
+            const adminEventoSelect = document.getElementById('evento-select');
+            if(adminSearchInput && adminEventoSelect) {
+                const handleAdminSearch = () => {
                     clearTimeout(debounceTimer);
                     debounceTimer = setTimeout(() => {
-                        document.getElementById('evento-filter-form').submit();
-                    }, 500);
+                        fetchInvitados(adminSearchInput.value, adminEventoSelect.value);
+                    }, 300);
+                };
+                adminSearchInput.addEventListener('keyup', handleAdminSearch);
+                adminEventoSelect.addEventListener('change', handleAdminSearch);
+            }
+
+            // Listener para RRPP
+            const rrppSearchInput = document.getElementById('search-input'); // Reutiliza el ID si es único en su contexto
+            const rrppEventoForm = document.getElementById('evento-filter-form');
+             if (rrppSearchInput && rrppEventoForm) {
+                 rrppSearchInput.addEventListener('keyup', () => {
+                    clearTimeout(debounceTimer);
+                    debounceTimer = setTimeout(() => rrppEventoForm.submit(), 500);
                 });
             }
-        });
-    </script>
-    
-    <script>
-        // Script para el toggle de ingreso (sin cambios)
-        document.addEventListener('DOMContentLoaded', function () {
-            const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
-            
-            document.getElementById('invitados-table-container').addEventListener('change', function(event) {
+
+            // **NUEVO**: Listener para el buscador del Cajero
+            const cajeroSearchInput = document.getElementById('search-input-cajero');
+            if (cajeroSearchInput) {
+                const eventoIdCajero = "{{ $eventoSeleccionado->id ?? '' }}";
+                cajeroSearchInput.addEventListener('keyup', () => {
+                    clearTimeout(debounceTimer);
+                    debounceTimer = setTimeout(() => {
+                        fetchInvitados(cajeroSearchInput.value, eventoIdCajero);
+                    }, 300);
+                });
+            }
+
+            // Función para manejar el toggle de ingreso
+            function handleToggleIngreso(event) {
                 if (event.target.classList.contains('ingreso-checkbox')) {
                     const checkbox = event.target;
                     const invitadoId = checkbox.dataset.id;
                     const isChecked = checkbox.checked;
 
-                     function applyRowStyle(cb) {
-                        const row = cb.closest('tr');
-                        if (cb.checked) { row.classList.add('bg-green-100'); } else { row.classList.remove('bg-green-100'); }
+                    const row = checkbox.closest('tr');
+                    
+                    // Optimistic update: cambia el color de la fila inmediatamente
+                    if (isChecked) {
+                        row.classList.add('bg-green-100');
+                        row.classList.remove('bg-white');
+                    } else {
+                        row.classList.remove('bg-green-100');
+                        row.classList.add('bg-white');
                     }
 
                     fetch(`/invitados/${invitadoId}/toggle-ingreso`, {
@@ -158,28 +186,39 @@
                         body: JSON.stringify({ ingreso: isChecked })
                     })
                     .then(response => {
-                        if (!response.ok) { return response.json().then(err => Promise.reject(err)); }
+                        if (!response.ok) return response.json().then(err => Promise.reject(err));
                         return response.json();
-                    })
-                    .then(data => {
-                        if (data.success) { applyRowStyle(checkbox); } 
-                        else {
-                            alert(data.message || 'Hubo un error al actualizar el estado.');
-                            checkbox.checked = !isChecked;
-                        }
                     })
                     .catch(error => {
                         console.error('Error:', error);
                         alert(error.message || 'Hubo un error de conexión.');
+                        // Revertir el cambio si falla la petición
                         checkbox.checked = !isChecked;
+                         if (checkbox.checked) {
+                            row.classList.add('bg-green-100');
+                            row.classList.remove('bg-white');
+                        } else {
+                            row.classList.remove('bg-green-100');
+                            row.classList.add('bg-white');
+                        }
                     });
                 }
-            });
+            }
+            
+            function attachCheckboxListeners() {
+                const container = document.getElementById('invitados-table-container');
+                container.removeEventListener('change', handleToggleIngreso); // Prevenir duplicados
+                container.addEventListener('change', handleToggleIngreso);
+                 
+                container.querySelectorAll('.ingreso-checkbox').forEach(function (checkbox) {
+                    const row = checkbox.closest('tr');
+                     if (checkbox.checked) { row.classList.add('bg-green-100'); row.classList.remove('bg-white'); } 
+                     else { row.classList.remove('bg-green-100'); row.classList.add('bg-white'); }
+                });
+            }
 
-            document.querySelectorAll('.ingreso-checkbox').forEach(function (checkbox) {
-                const row = checkbox.closest('tr');
-                if (checkbox.checked) { row.classList.add('bg-green-100'); } else { row.classList.remove('bg-green-100'); }
-            });
+            attachCheckboxListeners();
+
         });
     </script>
     @endpush

@@ -53,7 +53,11 @@ class InvitadoController extends Controller
             });
         });
 
-        $invitados = $query->with(['evento', 'beneficios', 'rrpp'])->latest()->get();
+        // **NUEVO CAMBIO**: Añadimos un orden para que los invitados sin RRPP (o de puerta) aparezcan al final
+        $query->orderByRaw('CASE WHEN usuario_id IS NULL THEN 1 ELSE 0 END, nombre_completo ASC');
+
+        $invitados = $query->with(['evento', 'beneficios', 'rrpp'])->get();
+
 
         if (in_array($user->rol, ['ADMIN', 'CAJERO'])) {
             $eventosParaSelector = Evento::orderBy('fecha_evento', 'desc')->get();
@@ -61,11 +65,10 @@ class InvitadoController extends Controller
             $eventosParaSelector = $eventosFuturos;
         }
 
-        // El evento seleccionado será el activo para el cajero
         $eventoSeleccionado = $eventoId ? ($user->rol === 'CAJERO' ? $eventoActivo : Evento::find($eventoId)) : null;
 
         if ($request->ajax()) {
-            return view('invitados._invitados_table', compact('invitados'))->render();
+            return view('invitados._invitados_table', compact('invitados'));
         }
 
         return view('invitados.index', compact('invitados', 'search', 'eventosParaSelector', 'eventoId', 'eventoSeleccionado'));
@@ -74,18 +77,28 @@ class InvitadoController extends Controller
 
     public function create()
     {
-        $this->authorizeRole(['RRPP', 'ADMIN']);
+        // **CAMBIO 1**: Permitimos que el CAJERO también pueda acceder a esta ruta.
+        $this->authorizeRole(['RRPP', 'ADMIN', 'CAJERO']);
 
         $user = Auth::user();
-
-        $eventos = Evento::where('fecha_evento', '>=', now()->toDateString())
-            ->orderBy('fecha_evento', 'asc')
-            ->get();
-
+        $eventos = collect();
         $beneficios = Beneficio::all();
 
-        if ($user->rol === 'RRPP' && $eventos->isEmpty()) {
-            return redirect()->route('dashboard')->with('error', 'No hay eventos próximos activos para cargar invitados.');
+        // **CAMBIO 2**: Lógica diferenciada para cada rol.
+        if ($user->rol === 'CAJERO') {
+            // El cajero SOLO puede cargar en el evento activo.
+            $eventoActivo = Evento::where('activo', true)->first();
+            if (!$eventoActivo) {
+                return redirect()->route('invitados.index')->with('error', 'No hay ningún evento activo para cargar invitados en puerta.');
+            }
+            $eventos->push($eventoActivo);
+        } else { // Para RRPP y ADMIN
+            $eventos = Evento::where('fecha_evento', '>=', now()->toDateString())
+                ->orderBy('fecha_evento', 'asc')
+                ->get();
+            if ($user->rol === 'RRPP' && $eventos->isEmpty()) {
+                return redirect()->route('dashboard')->with('error', 'No hay eventos próximos activos para cargar invitados.');
+            }
         }
 
         return view('invitados.create', compact('eventos', 'beneficios'));
@@ -93,7 +106,10 @@ class InvitadoController extends Controller
 
     public function store(Request $request)
     {
-        $this->authorizeRole(['RRPP', 'ADMIN']);
+        // **CAMBIO 3**: Permitimos que el CAJERO también pueda usar esta funcionalidad.
+        $this->authorizeRole(['RRPP', 'ADMIN', 'CAJERO']);
+
+        $user = Auth::user();
 
         $request->validate([
             'nombre_completo' => 'required|string|max:255',
@@ -104,16 +120,23 @@ class InvitadoController extends Controller
             'cantidades.*' => 'required_with:beneficios.*|integer|min:1',
         ]);
 
-
-
-        $invitado = Invitado::create([
+        // **CAMBIO 4**: Preparamos los datos del nuevo invitado.
+        $datosInvitado = [
             'nombre_completo' => $request->nombre_completo,
             'numero_acompanantes' => $request->numero_acompanantes,
             'evento_id' => $request->evento_id,
-            'usuario_id' => Auth::id(),
-        ]);
+            'usuario_id' => $user->id, // El invitado queda asociado a quien lo cargó (RRPP, Admin o Cajero)
+        ];
 
-        if (Auth::user()->rol === 'ADMIN' && $request->has('beneficios')) {
+        // **CAMBIO 5**: Si quien carga es un CAJERO, el invitado ya ingresa.
+        if ($user->rol === 'CAJERO') {
+            $datosInvitado['ingreso'] = true;
+        }
+
+        $invitado = Invitado::create($datosInvitado);
+
+        // La lógica de beneficios solo se aplica para el Admin, lo cual está correcto.
+        if ($user->rol === 'ADMIN' && $request->has('beneficios')) {
             $beneficiosParaAdjuntar = [];
             foreach ($request->beneficios as $beneficioId => $value) {
                 $beneficiosParaAdjuntar[$beneficioId] = ['cantidad' => $request->cantidades[$beneficioId] ?? 1];
@@ -128,9 +151,11 @@ class InvitadoController extends Controller
     public function edit(Invitado $invitado)
     {
         $this->authorizeOwnership($invitado);
-
         $user = Auth::user();
         $eventos = collect();
+
+        // **CAMBIO**: Un cajero no debería poder editar invitados. La lógica de authorizeOwnership ya lo previene.
+        // Si en el futuro se necesitara, aquí se añadiría la lógica. Por ahora, está bien así.
 
         if ($user->rol === 'ADMIN') {
             $eventos = Evento::where('fecha_evento', '>=', now()->toDateString())->orderBy('fecha_evento', 'asc')->get();
@@ -186,12 +211,14 @@ class InvitadoController extends Controller
     {
         $this->authorizeRole(['CAJERO', 'ADMIN']);
 
-        $eventoActual = Evento::where('fecha_evento', '>=', now()->toDateString())->orderBy('fecha_evento', 'asc')->first();
-        if (Auth::user()->rol === 'CAJERO' && (!$eventoActual || $invitado->evento_id != $eventoActual->id)) {
-            return response()->json(['success' => false, 'message' => 'Solo se puede modificar el ingreso de invitados para el evento actual.'], 403);
+        $eventoActivo = Evento::where('activo', true)->first();
+
+        // **CAMBIO**: Se ajusta la lógica para que el evento activo sea la única referencia para el cajero
+        if (Auth::user()->rol === 'CAJERO' && (!$eventoActivo || $invitado->evento_id != $eventoActivo->id)) {
+            return response()->json(['success' => false, 'message' => 'Solo se puede modificar el ingreso de invitados para el evento activo.'], 403);
         }
 
-        $invitado->ingreso = !$invitado->ingreso;
+        $invitado->ingreso = $request->input('ingreso', !$invitado->ingreso);
         $invitado->save();
         return response()->json(['success' => true, 'nuevo_estado' => $invitado->ingreso]);
     }
@@ -208,6 +235,11 @@ class InvitadoController extends Controller
         $user = Auth::user();
         if ($user->rol === 'ADMIN') {
             return;
+        }
+
+        // **CAMBIO**: Un cajero no es dueño de ningún invitado, por lo que no puede editar ni eliminar.
+        if ($user->rol === 'CAJERO') {
+            abort(403, 'No tienes permiso para realizar esta acción.');
         }
 
         $eventoDelInvitado = Evento::find($invitado->evento_id);
