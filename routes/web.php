@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
 
 Route::get('/', function () {
-    return view('welcome');
+    return redirect()->route('login');
 });
 
 Route::get('/dashboard', function () {
@@ -46,9 +46,27 @@ Route::middleware('role:ADMIN')->group(function () {
     Route::post('eventos/{evento}/toggle-activo', [EventoController::class, 'toggleActivo'])->name('eventos.toggleActivo');
 });
 
+// --- SECCIÓN DE INVITADOS REESTRUCTURADA ---
+
+// Rutas accesibles para todos los roles (ver lista, acceder al formulario de creación y guardar)
 Route::middleware('role:RRPP,ADMIN,CAJERO')->group(function () {
-    Route::resource('invitados', InvitadoController::class);
-    Route::post('/invitados/{invitado}/toggle-ingreso', [InvitadoController::class, 'toggleIngreso'])->name('invitados.toggleIngreso');
+    Route::get('invitados', [InvitadoController::class, 'index'])->name('invitados.index');
+    Route::get('invitados/create', [InvitadoController::class, 'create'])->name('invitados.create');
+    Route::post('invitados', [InvitadoController::class, 'store'])->name('invitados.store');
 });
+
+// Rutas para la edición completa (Editar, Actualizar, Eliminar) solo para Admin y RRPP
+Route::middleware('role:ADMIN,RRPP')->group(function () {
+    Route::get('invitados/{invitado}/edit', [InvitadoController::class, 'edit'])->name('invitados.edit');
+    Route::put('invitados/{invitado}', [InvitadoController::class, 'update'])->name('invitados.update');
+    Route::delete('invitados/{invitado}', [InvitadoController::class, 'destroy'])->name('invitados.destroy');
+});
+
+// Grupo de rutas para acciones específicas del Cajero y Admin
+Route::middleware('role:ADMIN,CAJERO')->group(function () {
+    Route::post('/invitados/{invitado}/toggle-ingreso', [InvitadoController::class, 'toggleIngreso'])->name('invitados.toggleIngreso');
+    Route::patch('/invitados/{invitado}/update-acompanantes', [InvitadoController::class, 'updateAcompanantes'])->name('invitados.updateAcompanantes');
+});
+
 
 require __DIR__ . '/auth.php';

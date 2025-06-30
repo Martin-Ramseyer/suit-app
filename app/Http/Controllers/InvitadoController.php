@@ -253,4 +253,21 @@ class InvitadoController extends Controller
 
         abort(403, 'No tienes permiso para realizar esta acción sobre este invitado.');
     }
+
+    /**
+     * Update the number of companions for a specific guest.
+     */
+    public function updateAcompanantes(Request $request, Invitado $invitado)
+    {
+        $this->authorizeRole(['CAJERO', 'ADMIN']);
+
+        $request->validate([
+            'numero_acompanantes' => 'required|integer|min:0',
+        ]);
+
+        $invitado->numero_acompanantes = $request->numero_acompanantes;
+        $invitado->save();
+
+        return redirect()->back()->with('success', 'Número de acompañantes actualizado correctamente.');
+    }
 }

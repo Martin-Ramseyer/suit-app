@@ -9,9 +9,9 @@
                     <th scope="col" class="px-6 py-3 text-left text-sm font-medium text-gray-500 uppercase tracking-wider">Evento</th>
                 @endif
 
-                 @if(in_array(Auth::user()->rol, ['ADMIN', 'CAJERO']))
+                @if(in_array(Auth::user()->rol, ['ADMIN', 'CAJERO']))
                     <th scope="col" class="px-6 py-3 text-left text-sm font-medium text-gray-500 uppercase tracking-wider">Beneficios</th>
-                 @endif
+                @endif
                 
                 @if(in_array(Auth::user()->rol, ['ADMIN', 'CAJERO']))
                     <th scope="col" class="px-6 py-3 text-left text-sm font-medium text-gray-500 uppercase tracking-wider">RRPP</th>
@@ -30,7 +30,20 @@
             @forelse ($invitados as $invitado)
                 <tr class="{{ $invitado->ingreso ? 'bg-green-50' : '' }}">
                     <td class="px-6 py-4 whitespace-nowrap text-base font-medium text-gray-900">{{ $invitado->nombre_completo }}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-base text-center text-gray-500">{{ $invitado->numero_acompanantes }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-base text-center text-gray-500">
+                        @if(in_array(Auth::user()->rol, ['ADMIN', 'CAJERO']))
+                            <form action="{{ route('invitados.updateAcompanantes', $invitado) }}" method="POST" class="flex items-center justify-center">
+                                @csrf
+                                @method('PATCH')
+                                <input type="number" name="numero_acompanantes" value="{{ $invitado->numero_acompanantes }}" class="w-20 form-input rounded-md shadow-sm text-center" min="0">
+                                <button type="submit" class="ml-2 inline-flex items-center px-2 py-1 border border-transparent text-xs leading-4 font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                                    OK
+                                </button>
+                            </form>
+                        @else
+                            {{ $invitado->numero_acompanantes }}
+                        @endif
+                    </td>
                     
                     @if(Auth::user()->rol == 'ADMIN')
                         <td class="px-6 py-4 whitespace-nowrap text-base text-gray-500">{{ $invitado->evento->fecha_evento ? \Carbon\Carbon::parse($invitado->evento->fecha_evento)->format('d/m/Y') : 'N/A' }}</td>
@@ -75,11 +88,14 @@
             @empty
                 <tr>
                     @php
-                        $colspan = 2;
-                        if(Auth::user()->rol == 'ADMIN') $colspan++;
-                        if(in_array(Auth::user()->rol, ['ADMIN', 'CAJERO'])) $colspan += 2;
-                        if(Auth::user()->rol == 'CAJERO') $colspan++;
-                        if(in_array(Auth::user()->rol, ['ADMIN', 'RRPP'])) $colspan++;
+                        // Correctly calculating colspan based on visible columns for the current user
+                        $colspan = 1; // Nombre
+                        $colspan++;   // Acompañantes
+                        if(Auth::user()->rol == 'ADMIN') $colspan++; // Evento
+                        if(in_array(Auth::user()->rol, ['ADMIN', 'CAJERO'])) $colspan++; // Beneficios
+                        if(in_array(Auth::user()->rol, ['ADMIN', 'CAJERO'])) $colspan++; // RRPP
+                        if(Auth::user()->rol == 'CAJERO') $colspan++; // Ingreso
+                        if(in_array(Auth::user()->rol, ['ADMIN', 'RRPP'])) $colspan++; // Acciones
                     @endphp
                     <td colspan="{{ $colspan }}" class="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-500">
                         @if(request('search'))
