@@ -3,18 +3,25 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
-use App\Models\Evento;
-use App\Models\Invitado;
+use App\Services\UsuarioService;
+use App\Services\MetricasService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
 
 class UsuarioController extends Controller
 {
+    protected $usuarioService;
+    protected $metricasService;
+
+    public function __construct(UsuarioService $usuarioService, MetricasService $metricasService)
+    {
+        $this->usuarioService = $usuarioService;
+        $this->metricasService = $metricasService;
+    }
+
     public function index()
     {
-        $usuarios = User::all();
+        $usuarios = $this->usuarioService->getAllUsuarios();
         return view('usuarios.index', compact('usuarios'));
     }
 
@@ -32,12 +39,7 @@ class UsuarioController extends Controller
             'password' => 'required|string|min:4|confirmed',
         ]);
 
-        User::create([
-            'nombre_completo' => $request->nombre_completo,
-            'usuario' => $request->usuario,
-            'rol' => $request->rol,
-            'password' => Hash::make($request->password),
-        ]);
+        $this->usuarioService->createUsuario($request->all());
 
         return redirect()->route('usuarios.index')->with('success', 'Usuario creado exitosamente.');
     }
@@ -56,71 +58,28 @@ class UsuarioController extends Controller
             'password' => 'nullable|string|min:4|confirmed',
         ]);
 
-        $data = $request->only(['nombre_completo', 'usuario', 'rol']);
-
-        if ($request->filled('password')) {
-            $data['password'] = Hash::make($request->password);
-        }
-
-        $usuario->update($data);
+        $this->usuarioService->updateUsuario($usuario, $request->all());
 
         return redirect()->route('usuarios.index')->with('success', 'Usuario actualizado exitosamente.');
     }
 
     public function destroy(User $usuario)
     {
-        if (Auth::id() == $usuario->id) {
-            return redirect()->route('usuarios.index')->with('error', 'No puedes eliminarte a ti mismo.');
+        try {
+            $this->usuarioService->deleteUsuario($usuario);
+            return redirect()->route('usuarios.index')->with('success', 'Usuario eliminado exitosamente.');
+        } catch (\Exception $e) {
+            return redirect()->route('usuarios.index')->with('error', $e->getMessage());
         }
-
-        $usuario->delete();
-
-        return redirect()->route('usuarios.index')->with('success', 'Usuario eliminado exitosamente.');
     }
-    
+
     public function metricas(Request $request, User $usuario)
     {
-        if ($usuario->rol !== 'RRPP') {
-            return redirect()->route('usuarios.index')->with('error', 'Solo los RRPP pueden tener métricas.');
+        try {
+            $data = $this->metricasService->getMetricasRrpp($request, $usuario);
+            return view('usuarios.metricas', $data);
+        } catch (\InvalidArgumentException $e) {
+            return redirect()->route('usuarios.index')->with('error', $e->getMessage());
         }
-
-        $eventos = Evento::orderBy('fecha_evento', 'desc')->get();
-        $eventoIdSeleccionado = $request->input('evento_id');
-
-        $invitadosQuery = Invitado::where('usuario_id', $usuario->id);
-
-        if ($eventoIdSeleccionado) {
-            $invitadosQuery->where('evento_id', $eventoIdSeleccionado);
-        }
-
-        $invitados = $invitadosQuery->with('evento')->get();
-
-        $totalInvitadosPrincipales = $invitados->count();
-        $totalAcompanantes = $invitados->sum('numero_acompanantes');
-        $totalPersonas = $totalInvitadosPrincipales + $totalAcompanantes;
-
-        $invitadosIngresaron = $invitados->where('ingreso', true);
-        $ingresaronPrincipales = $invitadosIngresaron->count();
-        $ingresaronAcompanantes = $invitadosIngresaron->sum('numero_acompanantes');
-        $totalIngresaron = $ingresaronPrincipales + $ingresaronAcompanantes;
-
-        $tasaAsistencia = ($totalPersonas > 0) ? ($totalIngresaron / $totalPersonas) * 100 : 0;
-
-        $metricas = [
-            'totalPersonas' => $totalPersonas,
-            'totalIngresaron' => $totalIngresaron,
-            'totalNoIngresaron' => $totalPersonas - $totalIngresaron,
-            'tasaAsistencia' => round($tasaAsistencia, 2),
-        ];
-
-        $eventoSeleccionado = $eventoIdSeleccionado ? Evento::find($eventoIdSeleccionado) : null;
-
-        return view('usuarios.metricas', compact(
-            'usuario',
-            'metricas',
-            'eventos',
-            'eventoSeleccionado',
-            'invitados'
-        ));
     }
 }
