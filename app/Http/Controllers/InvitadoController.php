@@ -3,7 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Models\Invitado;
-use App\Services\Invitado\InvitadoService;
+use App\Services\InvitadoService;
+use App\Services\Invitado\InvitadoActionService;
+use App\Services\Invitado\InvitadoViewDataService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Exception;
@@ -11,15 +13,23 @@ use Exception;
 class InvitadoController extends Controller
 {
     protected $invitadoService;
+    protected $viewDataService;
+    protected $actionService;
 
-    public function __construct(InvitadoService $invitadoService)
-    {
+    public function __construct(
+        InvitadoService $invitadoService,
+        InvitadoViewDataService $viewDataService,
+        InvitadoActionService $actionService
+    ) {
         $this->invitadoService = $invitadoService;
+        $this->viewDataService = $viewDataService;
+        $this->actionService = $actionService;
     }
 
     public function index(Request $request)
     {
-        $data = $this->invitadoService->getInvitadosForIndex($request);
+        // La autorización se maneja dentro del servicio
+        $data = $this->viewDataService->getInvitadosForIndex($request);
 
         if ($request->ajax()) {
             return view('invitados._invitados_table', ['invitados' => $data['invitados']]);
@@ -37,7 +47,8 @@ class InvitadoController extends Controller
     public function create()
     {
         try {
-            $data = $this->invitadoService->getDataForCreateForm();
+            // La autorización se maneja dentro del servicio
+            $data = $this->viewDataService->getDataForCreateForm();
             return view('invitados.create', $data);
         } catch (Exception $e) {
             return redirect()->route('invitados.index')->with('error', $e->getMessage());
@@ -55,15 +66,15 @@ class InvitadoController extends Controller
             'cantidades.*' => 'required_with:beneficios.*|integer|min:1',
         ]);
 
+        // La autorización se maneja dentro del servicio
         $this->invitadoService->createInvitado($request->all(), Auth::user());
-
         return redirect()->route('invitados.index')->with('success', 'Invitado agregado exitosamente.');
     }
 
     public function edit(Invitado $invitado)
     {
-        // La autorización la maneja el servicio
-        $data = $this->invitadoService->getDataForCreateForm();
+        // La autorización se maneja dentro del servicio
+        $data = $this->viewDataService->getDataForCreateForm();
         return view('invitados.edit', array_merge($data, compact('invitado')));
     }
 
@@ -78,13 +89,14 @@ class InvitadoController extends Controller
             'cantidades.*' => 'required_with:beneficios.*|integer|min:1',
         ]);
 
+        // La autorización se maneja dentro del servicio
         $this->invitadoService->updateInvitado($invitado, $request->all(), Auth::user());
-
         return redirect()->route('invitados.index')->with('success', 'Invitado actualizado exitosamente.');
     }
 
     public function destroy(Invitado $invitado)
     {
+        // La autorización se maneja dentro del servicio
         $this->invitadoService->deleteInvitado($invitado);
         return redirect()->route('invitados.index')->with('success', 'Invitado eliminado exitosamente.');
     }
@@ -92,7 +104,8 @@ class InvitadoController extends Controller
     public function toggleIngreso(Request $request, Invitado $invitado)
     {
         try {
-            $nuevoEstado = $this->invitadoService->toggleIngreso($invitado, $request->input('ingreso'));
+            // La autorización se maneja dentro del servicio
+            $nuevoEstado = $this->actionService->toggleIngreso($invitado, $request->input('ingreso'));
             return response()->json(['success' => true, 'nuevo_estado' => $nuevoEstado]);
         } catch (Exception $e) {
             return response()->json(['success' => false, 'message' => $e->getMessage()], 403);
@@ -102,7 +115,9 @@ class InvitadoController extends Controller
     public function updateAcompanantes(Request $request, Invitado $invitado)
     {
         $request->validate(['numero_acompanantes' => 'required|integer|min:0']);
-        $this->invitadoService->updateAcompanantes($invitado, $request->numero_acompanantes);
+
+        // La autorización se maneja dentro del servicio
+        $this->actionService->updateAcompanantes($invitado, $request->numero_acompanantes);
         return redirect()->back()->with('success', 'Número de acompañantes actualizado correctamente.');
     }
 }
