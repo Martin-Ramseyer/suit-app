@@ -71,6 +71,15 @@
                 </div>
             </div>
             @endif
+
+                          <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg mb-6">
+                    <div class="p-6 bg-white border-b border-gray-200">
+                        <h3 class="text-lg font-bold text-gray-800 mb-4">Rendimiento por RRPP</h3>
+                        <div style="height: 400px;">
+                            <canvas id="rrppChart"></canvas>
+                        </div>
+                    </div>
+                </div>
             {{-- =================== FIN NUEVA SECCIÓN DE MÉTRICAS =================== --}}
 
             {{-- Tabla de Resultados (sin cambios en la estructura de la tabla) --}}
@@ -143,4 +152,47 @@
 
         </div>
     </div>
+
+    @push('scripts')
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const eventoSeleccionadoId = '{{ $eventoSeleccionado->id ?? null }}';
+            let rrppChart = null;
+
+            function renderChart(data) {
+                const ctx = document.getElementById('rrppChart').getContext('2d');
+                
+                if (rrppChart) {
+                    rrppChart.destroy();
+                }
+
+                rrppChart = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: data.labels,
+                        datasets: data.datasets
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            y: {
+                                beginAtZero: true
+                            }
+                        }
+                    }
+                });
+            }
+
+            if (eventoSeleccionadoId) {
+                fetch(`/api/metricas/evento/${eventoSeleccionadoId}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        renderChart(data);
+                    })
+                    .catch(error => console.error('Error al cargar datos del gráfico:', error));
+            }
+        });
+    </script>
+    @endpush
 </x-app-layout>

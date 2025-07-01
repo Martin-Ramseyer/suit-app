@@ -6,6 +6,7 @@ use App\Models\Evento;
 use App\Services\Evento\EventoService;
 use App\Services\Evento\EventoMetricasService; // 1. Importa el nuevo servicio
 use Illuminate\Http\Request;
+use Illuminate\Http\JsonResponse;
 
 class EventoController extends Controller
 {
@@ -78,5 +79,10 @@ class EventoController extends Controller
     {
         $this->eventoService->toggleActivo($evento);
         return redirect()->route('eventos.index')->with('success', 'Estado del evento actualizado.');
+    }
+    public function getChartData(Evento $evento): JsonResponse
+    {
+        $data = $this->metricasService->getChartDataForEvento($evento);
+        return response()->json($data);
     }
 }

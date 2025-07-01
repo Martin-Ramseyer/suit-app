@@ -4,6 +4,7 @@ namespace App\Services\Evento;
 
 use App\Interfaces\EventoRepositoryInterface;
 use App\Models\Invitado;
+use App\Models\Evento;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\Request;
 
@@ -37,6 +38,42 @@ class EventoMetricasService
         }
 
         return compact('eventos', 'invitados', 'eventoSeleccionado', 'eventoIdSeleccionado', 'metricas');
+    }
+
+    public function getChartDataForEvento(Evento $evento): array
+    {
+        $invitados = Invitado::where('evento_id', $evento->id)->with('rrpp')->get();
+
+        $metricasPorRrpp = $invitados->groupBy('rrpp.nombre_completo')
+            ->map(function ($invitadosDelRrpp) {
+                $totalInvitados = $invitadosDelRrpp->count() + $invitadosDelRrpp->sum('numero_acompanantes');
+                $ingresaron = $invitadosDelRrpp->where('ingreso', true);
+                $totalIngresaron = $ingresaron->count() + $ingresaron->sum('numero_acompanantes');
+                return [
+                    'total' => $totalInvitados,
+                    'ingresaron' => $totalIngresaron,
+                ];
+            })->sortByDesc('ingresaron');
+
+        return [
+            'labels' => $metricasPorRrpp->keys(),
+            'datasets' => [
+                [
+                    'label' => 'Total de Personas Invitadas',
+                    'data' => $metricasPorRrpp->pluck('total')->values(),
+                    'backgroundColor' => 'rgba(54, 162, 235, 0.5)',
+                    'borderColor' => 'rgba(54, 162, 235, 1)',
+                    'borderWidth' => 1,
+                ],
+                [
+                    'label' => 'Total de Ingresos',
+                    'data' => $metricasPorRrpp->pluck('ingresaron')->values(),
+                    'backgroundColor' => 'rgba(75, 192, 192, 0.5)',
+                    'borderColor' => 'rgba(75, 192, 192, 1)',
+                    'borderWidth' => 1,
+                ],
+            ],
+        ];
     }
 
     public function getMetricasParaDashboard(): array

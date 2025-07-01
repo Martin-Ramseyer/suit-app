@@ -38,6 +38,7 @@ Route::middleware('role:ADMIN')->group(function () {
     Route::get('historial/eventos', [EventoController::class, 'historial'])->name('eventos.historial');
 
     Route::post('eventos/{evento}/toggle-activo', [EventoController::class, 'toggleActivo'])->name('eventos.toggleActivo');
+    Route::get('/api/metricas/evento/{evento}', [EventoController::class, 'getChartData'])->name('api.eventos.chart_data');
 });
 
 Route::middleware('role:RRPP,ADMIN,CAJERO')->group(function () {
