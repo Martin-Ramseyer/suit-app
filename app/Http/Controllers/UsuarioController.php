@@ -4,7 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\User;
 use App\Services\Usuario\UsuarioService;
-use App\Services\Usuario\MetricasService;
+use App\Services\Usuario\UsuarioMetricasService;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
@@ -13,7 +13,7 @@ class UsuarioController extends Controller
     protected $usuarioService;
     protected $metricasService;
 
-    public function __construct(UsuarioService $usuarioService, MetricasService $metricasService)
+    public function __construct(UsuarioService $usuarioService, UsuarioMetricasService $metricasService)
     {
         $this->usuarioService = $usuarioService;
         $this->metricasService = $metricasService;

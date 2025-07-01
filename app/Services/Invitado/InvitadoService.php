@@ -1,12 +1,12 @@
 <?php
 
-namespace App\Services;
+namespace App\Services\Invitado;
 
 use App\Interfaces\InvitadoRepositoryInterface;
 use App\Models\Invitado;
 use App\Models\User;
 use App\Services\Invitado\InvitadoAuthorizationService;
-use Illuminate\Support\Facades\Auth;
+use Illuminate\Container\Container;
 
 class InvitadoService
 {

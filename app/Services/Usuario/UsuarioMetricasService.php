@@ -7,7 +7,7 @@ use App\Models\Evento;
 use App\Models\Invitado;
 use Illuminate\Http\Request;
 
-class MetricasService
+class UsuarioMetricasService
 {
     public function getMetricasRrpp(Request $request, User $usuario): array
     {

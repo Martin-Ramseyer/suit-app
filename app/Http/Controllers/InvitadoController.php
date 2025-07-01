@@ -3,7 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Invitado;
-use App\Services\InvitadoService;
+use App\Services\Invitado\InvitadoService;
 use App\Services\Invitado\InvitadoActionService;
 use App\Services\Invitado\InvitadoViewDataService;
 use Illuminate\Http\Request;

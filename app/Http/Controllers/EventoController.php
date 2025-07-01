@@ -4,15 +4,18 @@ namespace App\Http\Controllers;
 
 use App\Models\Evento;
 use App\Services\Evento\EventoService;
+use App\Services\Evento\EventoMetricasService; // 1. Importa el nuevo servicio
 use Illuminate\Http\Request;
 
 class EventoController extends Controller
 {
     protected $eventoService;
+    protected $metricasService; // 2. Añade la propiedad para el nuevo servicio
 
-    public function __construct(EventoService $eventoService)
+    public function __construct(EventoService $eventoService, EventoMetricasService $metricasService) // 3. Inyéctalo aquí
     {
         $this->eventoService = $eventoService;
+        $this->metricasService = $metricasService; // 4. Asígnalo
     }
 
     public function index()
@@ -66,7 +69,8 @@ class EventoController extends Controller
 
     public function historial(Request $request)
     {
-        $data = $this->eventoService->getHistorialData($request);
+        // 5. Usa el servicio de métricas para obtener los datos del historial
+        $data = $this->metricasService->getHistorialData($request);
         return view('eventos.historial', $data);
     }
 
