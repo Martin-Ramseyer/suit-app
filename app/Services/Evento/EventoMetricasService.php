@@ -33,7 +33,8 @@ class EventoMetricasService
                     ->orderBy('nombre_completo', 'asc')
                     ->get();
 
-                $metricas = $this->calcularMetricas($invitados);
+                // Pasamos el evento seleccionado para poder usar el precio de la entrada
+                $metricas = $this->calcularMetricas($invitados, $eventoSeleccionado);
             }
         }
 
@@ -84,7 +85,8 @@ class EventoMetricasService
         }
 
         $invitados = Invitado::where('evento_id', $ultimoEvento->id)->get();
-        $metricas = $this->calcularMetricas($invitados);
+        // Pasamos el evento al cálculo de métricas
+        $metricas = $this->calcularMetricas($invitados, $ultimoEvento);
 
         return [
             'ultimoEvento' => $ultimoEvento,
@@ -96,19 +98,41 @@ class EventoMetricasService
         ];
     }
 
-    private function calcularMetricas(Collection $invitados): array
+    private function calcularMetricas(Collection $invitados, Evento $evento = null): array
     {
         $totalPersonas = $invitados->count() + $invitados->sum('numero_acompanantes');
         $invitadosQueIngresaron = $invitados->where('ingreso', true);
         $totalIngresaron = $invitadosQueIngresaron->count() + $invitadosQueIngresaron->sum('numero_acompanantes');
 
-        $beneficiosContador = ['Pulsera Vip' => 0, 'Entrada Free' => 0, 'Consumición' => 0];
+        // Contadores para todos los beneficios
+        $beneficiosContador = [
+            'Pulsera Vip' => 0,
+            'Entrada Free' => 0,
+            'Consumición' => 0,
+        ];
+
+        // Contamos el total de cada tipo de beneficio entregado a quienes ingresaron
         foreach ($invitadosQueIngresaron as $invitado) {
             foreach ($invitado->beneficios as $beneficio) {
                 if (isset($beneficiosContador[$beneficio->nombre_beneficio])) {
+                    // Sumamos la cantidad real del beneficio (ej: 2 consumiciones)
                     $beneficiosContador[$beneficio->nombre_beneficio] += $beneficio->pivot->cantidad;
                 }
             }
+        }
+
+        // Cálculo de ingresos estimados
+        $ingresosEstimados = 0;
+        if ($evento && $evento->precio_entrada > 0) {
+            // 1. Calculamos el total de personas que ingresaron.
+            // 2. A ese total, le restamos la CANTIDAD de beneficios "Entrada Free" que se dieron.
+            //    (Si se dieron 5 beneficios de "Entrada Free", se restan 5 entradas, sin importar los acompañantes)
+            $entradasPagadas = $totalIngresaron - $beneficiosContador['Entrada Free'];
+
+            // Aseguramos que no sea un número negativo si se regalan más entradas que las personas que ingresan.
+            $entradasPagadas = max(0, $entradasPagadas);
+
+            $ingresosEstimados = $entradasPagadas * $evento->precio_entrada;
         }
 
         $topRrpp = null;
@@ -135,6 +159,7 @@ class EventoMetricasService
             'beneficios' => $beneficiosContador,
             'topRrpp' => $topRrpp,
             'bottomRrpp' => $bottomRrpp,
+            'ingresosEstimados' => $ingresosEstimados, // Métrica corregida
         ];
     }
 }

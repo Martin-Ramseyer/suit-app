@@ -7,7 +7,7 @@
 
     <div class="py-12">
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
-            {{-- Selector de Eventos (sin cambios) --}}
+            {{-- Selector de Eventos --}}
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg mb-6">
                 <div class="p-6 bg-white border-b border-gray-200">
                     <form action="{{ route('eventos.historial') }}" method="GET">
@@ -28,15 +28,21 @@
                 </div>
             </div>
             
-            {{-- =================== INICIO NUEVA SECCIÓN DE MÉTRICAS =================== --}}
+            {{-- Sección de Métricas --}}
             @if($eventoSeleccionado && $metricas)
             <div class="mb-6">
                 <h3 class="text-lg font-bold text-gray-800 mb-4">Métricas del Evento</h3>
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                     <div class="bg-white p-6 rounded-lg shadow-sm">
                         <h4 class="text-sm font-medium text-gray-500 uppercase">Invitados</h4>
                         <p class="mt-2 text-3xl font-semibold text-gray-900">{{ $metricas['totalInvitados'] }} <span class="text-lg font-normal">totales</span></p>
                         <p class="mt-1 text-3xl font-semibold text-green-600">{{ $metricas['invitadosIngresaron'] }} <span class="text-lg font-normal">ingresaron</span></p>
+                    </div>
+
+                    <div class="bg-white p-6 rounded-lg shadow-sm">
+                        <h4 class="text-sm font-medium text-gray-500 uppercase">Ingresos Estimados</h4>
+                        <p class="mt-2 text-3xl font-semibold text-emerald-600">${{ number_format($metricas['ingresosEstimados'], 2, ',', '.') }}</p>
+                        <p class="text-sm text-gray-500 mt-1">Precio entrada: ${{ number_format($eventoSeleccionado->precio_entrada, 2, ',', '.') }}</p>
                     </div>
 
                     <div class="bg-white p-6 rounded-lg shadow-sm">

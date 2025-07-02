@@ -34,6 +34,10 @@
                             <x-input-label for="descripcion" :value="__('Descripción')" />
                             <textarea id="descripcion" name="descripcion" class="block mt-1 w-full rounded-md shadow-sm border-gray-300 focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50" rows="4">{{ old('descripcion') }}</textarea>
                         </div>
+                        <div class="mt-4">
+                            <x-input-label for="precio_entrada" :value="__('Precio de la Entrada ($)')" />
+                            <x-text-input id="precio_entrada" class="block mt-1 w-full" type="number" name="precio_entrada" :value="old('precio_entrada', 0)" step="0.01" min="0" />
+                        </div>
 
                         <div class="flex items-center justify-end mt-4">
                             <a href="{{ route('eventos.index') }}" class="underline text-sm text-gray-600 hover:text-gray-900">Cancelar</a>

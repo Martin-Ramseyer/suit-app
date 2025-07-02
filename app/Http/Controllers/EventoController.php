@@ -35,6 +35,7 @@ class EventoController extends Controller
         $request->validate([
             'fecha_evento' => 'required|date|unique:eventos,fecha_evento',
             'descripcion' => 'nullable|string|max:500',
+            'precio_entrada' => 'required|numeric|min:0',
         ]);
 
         $this->eventoService->createEvento($request->all());
@@ -53,6 +54,7 @@ class EventoController extends Controller
         $request->validate([
             'fecha_evento' => 'required|date|unique:eventos,fecha_evento,' . $evento->id,
             'descripcion' => 'nullable|string|max:500',
+            'precio_entrada' => 'required|numeric|min:0',
         ]);
 
         $this->eventoService->updateEvento($evento, $request->all());
