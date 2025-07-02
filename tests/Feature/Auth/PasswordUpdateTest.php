@@ -1,40 +1,49 @@
 <?php
 
+namespace Tests\Feature\Auth;
+
 use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
+use Tests\TestCase;
+use PHPUnit\Framework\Attributes\Test;
 
-test('password can be updated', function () {
-    $user = User::factory()->create();
+class PasswordUpdateTest extends TestCase
+{
+    use RefreshDatabase;
 
-    $response = $this
-        ->actingAs($user)
-        ->from('/profile')
-        ->put('/password', [
-            'current_password' => 'password',
-            'password' => 'new-password',
-            'password_confirmation' => 'new-password',
-        ]);
+    #[Test]
+    public function la_password_puede_ser_actualizada(): void
+    {
+        $user = User::factory()->create();
 
-    $response
-        ->assertSessionHasNoErrors()
-        ->assertRedirect('/profile');
+        $response = $this
+            ->actingAs($user)
+            ->from('/profile')
+            ->put('/password', [
+                'current_password'      => 'password',
+                'password'              => 'nueva-password-segura',
+                'password_confirmation' => 'nueva-password-segura',
+            ]);
 
-    $this->assertTrue(Hash::check('new-password', $user->refresh()->password));
-});
+        $response->assertSessionHasNoErrors()->assertRedirect('/profile');
+        $this->assertTrue(Hash::check('nueva-password-segura', $user->refresh()->password));
+    }
 
-test('correct password must be provided to update password', function () {
-    $user = User::factory()->create();
+    #[Test]
+    public function se_debe_proveer_la_password_actual_correcta_para_actualizar(): void
+    {
+        $user = User::factory()->create();
 
-    $response = $this
-        ->actingAs($user)
-        ->from('/profile')
-        ->put('/password', [
-            'current_password' => 'wrong-password',
-            'password' => 'new-password',
-            'password_confirmation' => 'new-password',
-        ]);
+        $response = $this
+            ->actingAs($user)
+            ->from('/profile')
+            ->put('/password', [
+                'current_password'      => 'password-incorrecta',
+                'password'              => 'nueva-password-segura',
+                'password_confirmation' => 'nueva-password-segura',
+            ]);
 
-    $response
-        ->assertSessionHasErrorsIn('updatePassword', 'current_password')
-        ->assertRedirect('/profile');
-});
+        $response->assertSessionHasErrorsIn('updatePassword', 'current_password')->assertRedirect('/profile');
+    }
+}
