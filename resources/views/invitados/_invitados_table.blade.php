@@ -5,9 +5,7 @@
                 <th scope="col" class="px-6 py-3 text-left text-sm font-medium text-gray-500 uppercase tracking-wider">Invitado</th>
                 <th scope="col" class="px-6 py-3 text-center text-sm font-medium text-gray-500 uppercase tracking-wider">Acompañantes</th>
                 
-                @if(Auth::user()->rol == 'ADMIN')
-                    <th scope="col" class="px-6 py-3 text-left text-sm font-medium text-gray-500 uppercase tracking-wider">Evento</th>
-                @endif
+            
 
                 @if(in_array(Auth::user()->rol, ['ADMIN', 'CAJERO']))
                     <th scope="col" class="px-6 py-3 text-left text-sm font-medium text-gray-500 uppercase tracking-wider">Beneficios</th>
@@ -45,9 +43,7 @@
                         @endif
                     </td>
                     
-                    @if(Auth::user()->rol == 'ADMIN')
-                        <td class="px-6 py-4 whitespace-nowrap text-base text-gray-500">{{ $invitado->evento->fecha_evento ? \Carbon\Carbon::parse($invitado->evento->fecha_evento)->format('d/m/Y') : 'N/A' }}</td>
-                    @endif
+                   
                     
                     @if(in_array(Auth::user()->rol, ['ADMIN', 'CAJERO']))
                         <td class="px-6 py-4 text-base text-gray-500 align-top">

@@ -37,6 +37,10 @@
                         <h4 class="text-sm font-medium text-gray-500 uppercase">Invitados</h4>
                         <p class="mt-2 text-3xl font-semibold text-gray-900">{{ $metricas['totalInvitados'] }} <span class="text-lg font-normal">totales</span></p>
                         <p class="mt-1 text-3xl font-semibold text-green-600">{{ $metricas['invitadosIngresaron'] }} <span class="text-lg font-normal">ingresaron</span></p>
+                        {{-- Quiero agregar una metrica que indique los que ingresaron con beneficio entrada free --}}
+                        <p class="mt-1 text-3xl font-semibold text-blue-600">{{ $metricas['beneficios']['Entrada Free'] ?? 0 }} <span class="text-lg font-normal">ingresaron free</span></p>
+                        {{-- Quiero agregar una metrica que indique los que no ingresaron --}}
+                        <p class="mt-1 text-3xl font-semibold text-red-600">{{ $metricas['totalInvitados'] - $metricas['invitadosIngresaron'] }} <span class="text-lg font-normal">no ingresaron</span></p>
                     </div>
 
                     <div class="bg-white p-6 rounded-lg shadow-sm">
