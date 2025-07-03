@@ -26,49 +26,8 @@
                         </div>
                     @endif
 
-                    <div class="overflow-x-auto">
-                        <table class="min-w-full w-full divide-y divide-gray-200"> 
-                            <thead class="bg-gray-50">
-                                <tr>
-                                    <th scope="col" class="px-6 py-3 text-left text-sm font-medium text-gray-500 uppercase tracking-wider">ID</th>
-                                    <th scope="col" class="px-6 py-3 text-left text-sm font-medium text-gray-500 uppercase tracking-wider">Nombre Completo</th>
-                                    <th scope="col" class="px-6 py-3 text-left text-sm font-medium text-gray-500 uppercase tracking-wider">Usuario</th>
-                                    <th scope="col" class="px-6 py-3 text-left text-sm font-medium text-gray-500 uppercase tracking-wider">Rol</th>
-                                    <th scope="col" class="px-6 py-3 text-right text-sm font-medium text-gray-500 uppercase tracking-wider">
-                                        Acciones
-                                    </th>
-                                </tr>
-                            </thead>
-                            <tbody class="bg-white divide-y divide-gray-200">
-                                @forelse ($usuarios as $usuario)
-                                    <tr>
-                                        <td class="px-6 py-4 whitespace-nowrap text-base text-gray-500">{{ $usuario->id }}</td>
-                                        <td class="px-6 py-4 whitespace-nowrap text-base text-gray-900">{{ $usuario->nombre_completo }}</td>
-                                        <td class="px-6 py-4 whitespace-nowrap text-base text-gray-500">{{ $usuario->usuario }}</td>
-                                        <td class="px-6 py-4 whitespace-nowrap text-base text-gray-500">{{ $usuario->rol }}</td>
-                                        <td class="px-6 py-4 whitespace-nowrap text-right text-base font-medium">
-                                            <div class="flex items-center justify-end space-x-4">
-                                                @if($usuario->rol === 'RRPP')
-                                                    <a href="{{ route('usuarios.metricas', $usuario->id) }}" class="text-green-600 hover:text-green-900">Métricas</a>
-                                                @endif
-                                                <a href="{{ route('usuarios.edit', $usuario->id) }}" class="text-indigo-600 hover:text-indigo-900">Editar</a>
-                                                <form action="{{ route('usuarios.destroy', $usuario->id) }}" method="POST" onsubmit="return confirm('¿Estás seguro de que quieres eliminar a este usuario?');">
-                                                    @csrf
-                                                    @method('DELETE')
-                                                    <button type="submit" class="text-red-600 hover:text-red-900">Eliminar</button>
-                                                </form>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                @empty
-                                    <tr>
-                                        <td colspan="5" class="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-500">
-                                            No se encontraron usuarios.
-                                        </td>
-                                    </tr>
-                                @endforelse
-                            </tbody>
-                        </table>
+                    <div id="usuarios-table-conteiner">
+                        @include('usuarios._usuarios_table')
                     </div>
 
                 </div>

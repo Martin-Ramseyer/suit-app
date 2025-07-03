@@ -107,119 +107,120 @@
 
     @push('scripts')
     <script>
-        document.addEventListener('DOMContentLoaded', function () {
-            const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
-            let debounceTimer;
+    document.addEventListener('DOMContentLoaded', function () {
+        const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+        const tableContainer = document.getElementById('invitados-table-container');
+        let debounceTimer;
 
-            function fetchInvitados(searchQuery, eventoId) {
-                const url = `{{ route('invitados.index') }}?search=${encodeURIComponent(searchQuery)}&evento_id=${encodeURIComponent(eventoId)}`;
-                const tableContainer = document.getElementById('invitados-table-container');
+        // --- MANEJADORES DE EVENTOS DE LA TABLA (DELEGADOS) ---
+        // Se adjuntan una sola vez al contenedor principal.
+        // Funcionarán para cualquier fila o botón, incluso los que se cargan después.
 
-                fetch(url, {
-                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
-                })
+        if (tableContainer) {
+            // Manejador para los checkboxes de "Ingreso"
+            tableContainer.addEventListener('change', function(event) {
+                if (event.target.classList.contains('ingreso-checkbox')) {
+                    handleToggleIngreso(event.target);
+                }
+            });
+
+            // NUEVO: Manejador para los inputs de "Acompañantes"
+            tableContainer.addEventListener('input', function(event) {
+                if (event.target.classList.contains('acompanantes-input')) {
+                    handleAcompanantesInput(event.target);
+                }
+            });
+        }
+
+        // --- LÓGICA DE BÚSQUEDA Y FILTROS ---
+
+        function fetchInvitados(searchQuery, eventoId) {
+            const url = `{{ route('invitados.index') }}?search=${encodeURIComponent(searchQuery)}&evento_id=${encodeURIComponent(eventoId)}`;
+            
+            fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
                 .then(response => response.text())
                 .then(html => {
                     tableContainer.innerHTML = html;
-                    attachCheckboxListeners(); // Re-adjuntar listeners a los nuevos checkboxes
+                    // No es necesario re-adjuntar listeners gracias a la delegación de eventos.
                 })
                 .catch(error => console.error('Error al buscar invitados:', error));
-            }
-            
-            // Listener para Admin
-            const adminSearchInput = document.getElementById('search-input');
-            const adminEventoSelect = document.getElementById('evento-select');
-            if(adminSearchInput && adminEventoSelect) {
-                const handleAdminSearch = () => {
-                    clearTimeout(debounceTimer);
-                    debounceTimer = setTimeout(() => {
-                        fetchInvitados(adminSearchInput.value, adminEventoSelect.value);
-                    }, 300);
-                };
-                adminSearchInput.addEventListener('keyup', handleAdminSearch);
-                adminEventoSelect.addEventListener('change', handleAdminSearch);
-            }
+        }
 
-            // Listener para RRPP
-            const rrppSearchInput = document.getElementById('search-input'); // Reutiliza el ID si es único en su contexto
-            const rrppEventoForm = document.getElementById('evento-filter-form');
-             if (rrppSearchInput && rrppEventoForm) {
-                 rrppSearchInput.addEventListener('keyup', () => {
-                    clearTimeout(debounceTimer);
-                    debounceTimer = setTimeout(() => rrppEventoForm.submit(), 500);
-                });
-            }
+        // Listener para Admin
+        const adminSearchInput = document.getElementById('search-input');
+        const adminEventoSelect = document.getElementById('evento-select');
+        if (adminSearchInput && adminEventoSelect) {
+            const handleAdminSearch = () => {
+                clearTimeout(debounceTimer);
+                debounceTimer = setTimeout(() => {
+                    fetchInvitados(adminSearchInput.value, adminEventoSelect.value);
+                }, 300);
+            };
+            adminSearchInput.addEventListener('keyup', handleAdminSearch);
+            adminEventoSelect.addEventListener('change', handleAdminSearch);
+        }
 
-            // **NUEVO**: Listener para el buscador del Cajero
-            const cajeroSearchInput = document.getElementById('search-input-cajero');
-            if (cajeroSearchInput) {
-                const eventoIdCajero = "{{ $eventoSeleccionado->id ?? '' }}";
-                cajeroSearchInput.addEventListener('keyup', () => {
-                    clearTimeout(debounceTimer);
-                    debounceTimer = setTimeout(() => {
-                        fetchInvitados(cajeroSearchInput.value, eventoIdCajero);
-                    }, 300);
-                });
-            }
+        // Listener para RRPP (mantiene su funcionamiento original de recarga)
+        const rrppSearchInput = document.getElementById('search-input');
+        const rrppEventoForm = document.getElementById('evento-filter-form');
+        if (rrppSearchInput && rrppEventoForm && !adminEventoSelect) { // Evita que se ejecute en la vista de Admin
+            rrppSearchInput.addEventListener('keyup', () => {
+                clearTimeout(debounceTimer);
+                debounceTimer = setTimeout(() => rrppEventoForm.submit(), 500);
+            });
+        }
 
-            // Función para manejar el toggle de ingreso
-            function handleToggleIngreso(event) {
-                if (event.target.classList.contains('ingreso-checkbox')) {
-                    const checkbox = event.target;
-                    const invitadoId = checkbox.dataset.id;
-                    const isChecked = checkbox.checked;
+        // Listener para Cajero
+        const cajeroSearchInput = document.getElementById('search-input-cajero');
+        if (cajeroSearchInput) {
+            const eventoIdCajero = "{{ $eventoSeleccionado->id ?? '' }}";
+            cajeroSearchInput.addEventListener('keyup', () => {
+                clearTimeout(debounceTimer);
+                debounceTimer = setTimeout(() => {
+                    fetchInvitados(cajeroSearchInput.value, eventoIdCajero);
+                }, 300);
+            });
+        }
 
-                    const row = checkbox.closest('tr');
-                    
-                    // Optimistic update: cambia el color de la fila inmediatamente
-                    if (isChecked) {
-                        row.classList.add('bg-green-100');
-                        row.classList.remove('bg-white');
-                    } else {
-                        row.classList.remove('bg-green-100');
-                        row.classList.add('bg-white');
-                    }
+        // --- FUNCIONES DE LÓGICA PARA LA TABLA ---
 
-                    fetch(`/invitados/${invitadoId}/toggle-ingreso`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken },
-                        body: JSON.stringify({ ingreso: isChecked })
-                    })
-                    .then(response => {
-                        if (!response.ok) return response.json().then(err => Promise.reject(err));
-                        return response.json();
-                    })
-                    .catch(error => {
-                        console.error('Error:', error);
-                        alert(error.message || 'Hubo un error de conexión.');
-                        // Revertir el cambio si falla la petición
-                        checkbox.checked = !isChecked;
-                         if (checkbox.checked) {
-                            row.classList.add('bg-green-100');
-                            row.classList.remove('bg-white');
-                        } else {
-                            row.classList.remove('bg-green-100');
-                            row.classList.add('bg-white');
-                        }
-                    });
+        function handleToggleIngreso(checkbox) {
+            const invitadoId = checkbox.dataset.id;
+            const isChecked = checkbox.checked;
+            const row = checkbox.closest('tr');
+
+            // Actualización optimista del UI
+            row.classList.toggle('bg-green-50', isChecked);
+
+            fetch(`/invitados/${invitadoId}/toggle-ingreso`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken },
+                body: JSON.stringify({ ingreso: isChecked })
+            })
+            .then(response => {
+                if (!response.ok) return response.json().then(err => Promise.reject(err));
+                return response.json();
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert(error.message || 'Hubo un error al actualizar el ingreso.');
+                // Revertir el cambio si falla la petición
+                checkbox.checked = !isChecked;
+                row.classList.toggle('bg-green-50', !isChecked);
+            });
+        }
+
+        // NUEVO: Función que muestra el botón "OK" al cambiar el número
+        function handleAcompanantesInput(input) {
+            const form = input.closest('form');
+            if (form) {
+                const okButton = form.querySelector('.acompanantes-ok-button');
+                if (okButton) {
+                    okButton.classList.remove('hidden');
                 }
             }
-            
-            function attachCheckboxListeners() {
-                const container = document.getElementById('invitados-table-container');
-                container.removeEventListener('change', handleToggleIngreso); // Prevenir duplicados
-                container.addEventListener('change', handleToggleIngreso);
-                 
-                container.querySelectorAll('.ingreso-checkbox').forEach(function (checkbox) {
-                    const row = checkbox.closest('tr');
-                     if (checkbox.checked) { row.classList.add('bg-green-100'); row.classList.remove('bg-white'); } 
-                     else { row.classList.remove('bg-green-100'); row.classList.add('bg-white'); }
-                });
-            }
-
-            attachCheckboxListeners();
-
-        });
-    </script>
+        }
+    });
+</script>
     @endpush
 </x-app-layout>
