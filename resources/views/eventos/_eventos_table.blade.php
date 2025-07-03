@@ -3,8 +3,10 @@
         <thead class="bg-gray-50">
             <tr>
                 <th class="px-6 py-3 text-left text-sm font-medium text-gray-500 uppercase tracking-wider">ID</th>
-                <th class="px-6 py-3 text-left text-sm font-medium text-gray-500 uppercase tracking-wider">Fecha del Evento</th>
-                <th class="px-6 py-3 text-left text-sm font-medium text-gray-500 uppercase tracking-wider">Descripción</th>
+                <th class="px-6 py-3 text-left text-sm font-medium text-gray-500 uppercase tracking-wider">Fecha del
+                    Evento</th>
+                <th class="px-6 py-3 text-left text-sm font-medium text-gray-500 uppercase tracking-wider">Descripción
+                </th>
                 <th class="px-6 py-3 text-right text-sm font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
             </tr>
         </thead>
